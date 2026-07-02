@@ -1165,7 +1165,9 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 </style>
 </head>
 <body>
-<div class="login-screen" id="login-screen">
+<!-- Login gate disabled for now (re-enable by removing "display:none" here and
+     restoring the login-screen default display once Firebase is configured). -->
+<div class="login-screen" id="login-screen" style="display:none;">
   <div class="login-box">
     <div class="login-logo">🟦 Surface Hub</div>
     <p class="login-sub">سجّل دخولك للمتابعة</p>
@@ -1184,7 +1186,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     </form>
   </div>
 </div>
-<div class="container" id="app-root" style="display:none;">
+<div class="container" id="app-root">
 
 <!-- ===== INTRO ===== -->
 <div class="intro">
@@ -1204,7 +1206,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   <div class="header-actions">
     <button class="btn btn-sm btn-icon-only" id="btn-toggle-theme" title="تبديل الوضع الليلي/النهاري" aria-label="تبديل الوضع الليلي/النهاري">🌙</button>
     <button class="btn btn-sm btn-icon-only" id="btn-open-about" title="حول البرنامج" aria-label="حول البرنامج">ℹ️</button>
-    <button class="btn btn-sm btn-icon-only" id="btn-logout" title="تسجيل الخروج" aria-label="تسجيل الخروج">🚪</button>
+    <button class="btn btn-sm btn-icon-only" id="btn-logout" title="تسجيل الخروج" aria-label="تسجيل الخروج" style="display:none;">🚪</button>
   </div>
 </div>
 
@@ -2675,26 +2677,28 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   // ============================================================
   // STORAGE LAYER
   // ============================================================
-  // Backed by Firestore (see the Firebase module script below, which exposes
-  // db access via window.__fb). load() is a one-time fetch used at startup;
-  // ongoing cross-device sync happens separately via onSnapshot.
+  // Temporarily back on localStorage (single device, no login gate) while
+  // Firebase isn't configured yet. To switch back to shared Firestore sync:
+  // restore load()/save() to call window.__fb.getDoc/setDoc (see git history
+  // on this file), and re-enable the login screen (see the top of <body>).
+  const STORAGE_KEY = 'surface_hub_local';
+  const STORAGE_VERSION = 1;
   const Storage = {
     async load() {
       try {
-        const snap = await window.__fb.getDoc(window.__fb.STATE_DOC);
-        return snap.exists() ? snap.data() : null;
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (parsed.version !== STORAGE_VERSION) return null;
+        return parsed.data;
       } catch (e) {
         console.error('Storage load failed:', e);
-        toast('تعذّر تحميل البيانات من الخادم', 'error');
         return null;
       }
     },
     save(data) {
       try {
-        window.__fb.setDoc(window.__fb.STATE_DOC, data).catch(e => {
-          console.error('Storage save failed:', e);
-          toast('فشل حفظ البيانات — تحقق من الاتصال', 'error');
-        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: STORAGE_VERSION, savedAt: new Date().toISOString(), data }));
         return true;
       } catch (e) {
         console.error('Storage save failed:', e);
@@ -6975,6 +6979,10 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   // Shared with the Firebase module below so it can surface connection errors
   // using the app's existing toast UI instead of a bare alert().
   window.toast = toast;
+
+  // Login gate is disabled for now (see <body> top) — start immediately
+  // instead of waiting for the Firebase module's onAuthStateChanged.
+  window.startApp();
 })();
 </script>
 
@@ -7007,8 +7015,16 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
        "YOUR_..." placeholder), then push this file to your GitHub repo /
        GitHub Pages. The apiKey is not a secret — Firestore Rules (step 5) are
        what actually restrict access, not this key.
+
+  Disabled for now (LOGIN_ENABLED = false below) — the app runs on local
+  storage without a login gate. Flip LOGIN_ENABLED to true once steps 1-6
+  above are done to switch back to shared Firestore sync + login.
 -->
 <script type="module">
+  // Set to true once the Firebase setup checklist above is done, to switch
+  // back to shared Firestore sync + the login gate.
+  const LOGIN_ENABLED = false;
+
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
   import {
     getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
@@ -7016,6 +7032,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   import {
     getFirestore, doc, getDoc, setDoc, onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+  if (LOGIN_ENABLED) {
 
   // ⚠️ Replace with YOUR project's config (Firebase Console → Project settings → General → Your apps → SDK setup and configuration → Config)
   const firebaseConfig = {
@@ -7101,6 +7119,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       }
     });
   }
+
+  } // end if (LOGIN_ENABLED)
 </script>
 </body>
 </html>
