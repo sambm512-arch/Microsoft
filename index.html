@@ -1207,6 +1207,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     <button class="btn btn-sm btn-icon-only" id="btn-toggle-theme" title="تبديل الوضع الليلي/النهاري" aria-label="تبديل الوضع الليلي/النهاري">🌙</button>
     <button class="btn btn-sm btn-icon-only" id="btn-open-about" title="حول البرنامج" aria-label="حول البرنامج">ℹ️</button>
     <button class="btn btn-sm btn-icon-only" id="btn-logout" title="تسجيل الخروج" aria-label="تسجيل الخروج">🚪</button>
+    <button class="btn btn-sm" id="btn-import-data" title="استيراد نسخة بيانات JSON">📥 استيراد</button>
+    <input type="file" id="import-file-input" accept=".json" style="display: none;">
   </div>
 </div>
 
@@ -3081,6 +3083,45 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     if (typeof renderWallet === 'function') {
       try { renderWallet(); } catch (e) { /* render may fail if DOM not ready */ }
     }
+  }
+
+  // Loads a full state snapshot from a local .json file into Firestore, using
+  // this session's own login (no separate credentials needed). Generic — the
+  // file itself is never bundled into the source, only picked locally.
+  function importData(file) {
+    if (!file) { toast('لم يتم اختيار ملف', 'error'); return; }
+    const reader = new FileReader();
+    reader.onerror = () => alert('فشل قراءة الملف.');
+    reader.onload = e => {
+      let parsed;
+      try {
+        parsed = JSON.parse(e.target.result);
+      } catch (err) {
+        alert('❌ الملف ليس JSON صحيح.\n\n' + err.message);
+        return;
+      }
+      if (!Array.isArray(parsed.inventory) || !Array.isArray(parsed.transactions)) {
+        alert('❌ الملف ناقص — لا يحتوي على المخزون أو الحركات.');
+        return;
+      }
+      const summary = `تأكيد الاستيراد:\n\n` +
+        `• ${parsed.inventory.length} جهاز\n` +
+        `• ${(parsed.transactions || []).length} حركة حصّالة\n` +
+        `• ${(parsed.accounts || []).length} حساب Office\n` +
+        `• ${(parsed.sales || []).length} عملية بيع\n\n` +
+        `سيتم استبدال كل البيانات الحالية. متأكد؟`;
+      if (!confirm(summary)) return;
+      state = parsed;
+      persist();
+      try {
+        renderAll();
+        toast('✅ تم استيراد البيانات بنجاح', 'success');
+      } catch (err) {
+        console.error('Render failed after import:', err);
+        alert('تم الحفظ لكن حدث خطأ بالعرض. أعد تحميل الصفحة (F5).');
+      }
+    };
+    reader.readAsText(file, 'utf-8');
   }
 
   // ============================================================
@@ -6734,6 +6775,15 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 
     // PDF download
     document.getElementById('btn-download-pdf').addEventListener('click', downloadPdf);
+
+    // Data import
+    document.getElementById('btn-import-data').addEventListener('click', () => {
+      document.getElementById('import-file-input').click();
+    });
+    document.getElementById('import-file-input').addEventListener('change', e => {
+      if (e.target.files[0]) importData(e.target.files[0]);
+      e.target.value = '';
+    });
 
     // Data management
     document.getElementById('btn-open-about').addEventListener('click', () => openModal('aboutModal'));
