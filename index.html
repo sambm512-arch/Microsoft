@@ -2722,6 +2722,14 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       state = JSON.parse(JSON.stringify(SEED_DATA));
       Storage.save(state);
     }
+    applyStateMigrations();
+  }
+
+  // Brings whatever is in `state` (freshly loaded, seeded, or just imported
+  // via importData()) up to the current schema — recomputed prices, derived
+  // custody entities, notes patches, etc. Safe to call more than once; every
+  // step is gated behind its own state.meta.*Version flag.
+  function applyStateMigrations() {
     // Migration: ensure new fields exist on older stored data
     if (!state.meta) state.meta = {};
     if (!state.meta.profitGoals) {
@@ -3112,6 +3120,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         `سيتم استبدال كل البيانات الحالية. متأكد؟`;
       if (!confirm(summary)) return;
       state = parsed;
+      applyStateMigrations();
       persist();
       try {
         renderAll();
