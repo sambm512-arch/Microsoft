@@ -2695,7 +2695,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     },
     save(data) {
       try {
-        window.__fb.setDoc(window.__fb.STATE_DOC, data).catch(e => {
+        window.__fb.setDoc(data).catch(e => {
           console.error('Storage save failed:', e);
           toast('فشل حفظ البيانات: ' + (e && e.message ? e.message : e), 'error');
         });
