@@ -111,9 +111,8 @@ body {
 .intro { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
 .intro h1 { margin: 0 0 0.5rem; font-size: 22px; font-weight: 500; }
 .intro p { margin: 0.25rem 0; color: var(--text-muted); font-size: 14px; }
-.header { padding: 1rem 1.25rem; background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.logo { display: flex; align-items: center; gap: 10px; }
-.logo-mark { width: 32px; height: 32px; border-radius: 6px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; color: var(--primary); font-weight: 500; font-size: 13px; }
+.intro-with-actions { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.intro-with-actions .header-actions { flex-shrink: 0; }
 
 /* ===== Tabs ===== */
 .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 1rem; padding: 4px; background: var(--neutral-bg); border-radius: 8px; }
@@ -1189,13 +1188,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 <div class="container" id="app-root" style="display:none;">
 
 <!-- ===== INTRO ===== -->
-<div class="intro">
-  <h1>🟦 Surface Hub</h1>
-  <p>مشروع استثمار وبيع أجهزة Microsoft Surface المستعملة</p>
-</div>
-
-<!-- ===== HEADER ===== -->
-<div class="header">
+<div class="intro intro-with-actions">
+  <div>
+    <h1>🟦 Surface Hub</h1>
+    <p>مشروع استثمار وبيع أجهزة Microsoft Surface المستعملة</p>
+  </div>
   <div class="header-actions">
     <button class="btn btn-sm btn-icon-only" id="btn-toggle-theme" title="تبديل الوضع الليلي/النهاري" aria-label="تبديل الوضع الليلي/النهاري">🌙</button>
     <button class="btn btn-sm btn-icon-only" id="btn-logout" title="تسجيل الخروج" aria-label="تسجيل الخروج">🚪</button>
