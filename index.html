@@ -1421,6 +1421,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           <th style="width: 60px;">%</th>
           <th>البائع</th>
           <th style="width: 90px;">التاريخ</th>
+          <th style="width: 50px;"></th>
         </tr></thead>
         <tbody id="sales-tbody"></tbody>
       </table>
@@ -3589,7 +3590,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     const isPre = salesYear === 'pre';
 
     if (sales.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="${isPre ? 11 : 10}" class="empty-state">لا توجد مبيعات لهذه السنة</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${isPre ? 12 : 11}" class="empty-state">لا توجد مبيعات لهذه السنة</td></tr>`;
     } else {
       tbody.innerHTML = sales.map((s, i) => {
         const seqStr = String(s.seq || (i+1)).padStart(2, '0');
@@ -3613,6 +3614,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
             <td class="mono">${pct}%</td>
             <td>${escapeHtml(s.seller || '—')}</td>
             <td class="mono">${escapeHtml(s.date || '—')}</td>
+            <td><button class="btn btn-sm" title="تراجع عن البيع — يرجع الجهاز للمخزون" data-action="undo-sale" data-seq="${s.seq}" data-year="${escapeAttr(s.year)}">↩️</button></td>
           </tr>
         `;
       }).join('');
@@ -6027,6 +6029,47 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     renderSales();
   }
 
+  // Reverses confirmSell(): removes the sale record and rebuilds an
+  // inventory entry from what the sale kept (model/specs/cost/prices/notes/
+  // photos). Serial number, location, and inspection stage weren't carried
+  // over at sale time, so those come back blank/default and may need a
+  // manual touch-up after undoing.
+  function undoSale(seq, year) {
+    const idx = state.sales.findIndex(s => s.seq === seq && s.year === year);
+    if (idx === -1) { toast('عملية البيع غير موجودة', 'error'); return; }
+    const s = state.sales[idx];
+    if (!confirm(`تراجع عن بيع ${s.model} (${formatNum(s.salePrice)} SAR)؟\n\nالجهاز يرجع للمخزون، وعملية البيع تُحذف نهائيًا.`)) return;
+
+    let id = s.sourceDeviceId;
+    if (!id || state.inventory.some(d => d.id === id)) id = nextDeviceId();
+    const device = {
+      id,
+      code: s.sourceDeviceCode || ('DEV-' + id),
+      location: 'jeddah',
+      model: s.model,
+      specs: s.specs || '',
+      note: '',
+      serial: '',
+      status: 'listed',
+      statusText: 'معروض',
+      stage: 5,
+      cost: s.cost,
+      minPrice: s.minPrice,
+      targetPrice: s.targetPrice,
+      notes: s.notes || [],
+      photos: s.photos || []
+    };
+    state.inventory.push(device);
+    state.sales.splice(idx, 1);
+
+    persist();
+    renderInventory();
+    renderSales();
+    renderDashboard();
+    renderFiscal();
+    toast(`تم التراجع — ${device.code} رجع للمخزون. تحقق من الموقع والرقم التسلسلي`, 'success');
+  }
+
   // ============================================================
   // DEVICE NOTES (timeline)
   // ============================================================
@@ -6694,6 +6737,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         viewDevicePhoto(btn.dataset.photoId);
       } else if (action === 'edit-account') {
         openEditAccount(parseInt(btn.dataset.accountId, 10));
+      } else if (action === 'undo-sale') {
+        undoSale(parseInt(btn.dataset.seq, 10), btn.dataset.year);
       }
     });
 
