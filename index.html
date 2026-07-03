@@ -1196,19 +1196,9 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 
 <!-- ===== HEADER ===== -->
 <div class="header">
-  <div class="logo">
-    <div class="logo-mark">SH</div>
-    <div>
-      <div style="font-size: 15px; font-weight: 500;">Surface Hub</div>
-      <div style="font-size: 11px; color: var(--text-faint);">السنة المالية 2026 · شراكة محمد + فاطمة</div>
-    </div>
-  </div>
   <div class="header-actions">
     <button class="btn btn-sm btn-icon-only" id="btn-toggle-theme" title="تبديل الوضع الليلي/النهاري" aria-label="تبديل الوضع الليلي/النهاري">🌙</button>
-    <button class="btn btn-sm btn-icon-only" id="btn-open-about" title="حول البرنامج" aria-label="حول البرنامج">ℹ️</button>
     <button class="btn btn-sm btn-icon-only" id="btn-logout" title="تسجيل الخروج" aria-label="تسجيل الخروج">🚪</button>
-    <button class="btn btn-sm" id="btn-import-data" title="استيراد نسخة بيانات JSON">📥 استيراد</button>
-    <input type="file" id="import-file-input" accept=".json" style="display: none;">
   </div>
 </div>
 
@@ -6835,17 +6825,6 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     // PDF download
     document.getElementById('btn-download-pdf').addEventListener('click', downloadPdf);
 
-    // Data import
-    document.getElementById('btn-import-data').addEventListener('click', () => {
-      document.getElementById('import-file-input').click();
-    });
-    document.getElementById('import-file-input').addEventListener('change', e => {
-      if (e.target.files[0]) importData(e.target.files[0]);
-      e.target.value = '';
-    });
-
-    // Data management
-    document.getElementById('btn-open-about').addEventListener('click', () => openModal('aboutModal'));
     document.getElementById('btn-toggle-theme').addEventListener('click', toggleTheme);
 
     // Edit goal
