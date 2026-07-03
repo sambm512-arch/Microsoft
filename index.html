@@ -5993,9 +5993,13 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       profit,
       seller,
       date,
-      // Preserve linkage and history
+      // Preserve linkage and history (also lets undoSale() fully restore the
+      // device instead of leaving serial/location blank)
       sourceDeviceCode: d.code,
       sourceDeviceId: d.id,
+      sourceSerial: d.serial || '',
+      sourceLocation: d.location || 'jeddah',
+      sourceNote: d.note || '',
       notes: d.notes || [],
       photos: d.photos || []
     };
@@ -6045,11 +6049,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     const device = {
       id,
       code: s.sourceDeviceCode || ('DEV-' + id),
-      location: 'jeddah',
+      location: s.sourceLocation || 'jeddah',
       model: s.model,
       specs: s.specs || '',
-      note: '',
-      serial: '',
+      note: s.sourceNote || '',
+      serial: s.sourceSerial || '',
       status: 'listed',
       statusText: 'معروض',
       stage: 5,
@@ -6067,7 +6071,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     renderSales();
     renderDashboard();
     renderFiscal();
-    toast(`تم التراجع — ${device.code} رجع للمخزون. تحقق من الموقع والرقم التسلسلي`, 'success');
+    const hint = device.serial ? '' : ' — هذا البيع من قبل التحديث الأخير، تحقق من الموقع والرقم التسلسلي يدويًا';
+    toast(`تم التراجع — ${device.code} رجع للمخزون${hint}`, 'success');
   }
 
   // ============================================================
