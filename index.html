@@ -214,6 +214,14 @@ table.tbl tr.clickable:focus-visible { background: var(--primary-light); outline
 .warn-banner { background: var(--warn-bg); padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; font-size: 12px; color: var(--warn-text); }
 .danger-banner { background: var(--danger-bg); padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; color: var(--danger-text); }
 
+/* ===== Recent activity (dashboard) ===== */
+.activity-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 4px; border-bottom: 0.5px solid var(--border); }
+.activity-item:last-child { border-bottom: none; }
+.activity-icon { font-size: 15px; flex-shrink: 0; }
+.activity-detail { flex: 1; min-width: 0; font-size: 13px; }
+.activity-date { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+.activity-amount { font-weight: 500; font-family: ui-monospace, "SF Mono", Menlo, monospace; white-space: nowrap; }
+
 /* ===== Year tabs ===== */
 .year-tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
 .year-tab { padding: 4px 12px; font-size: 12px; border-radius: 6px; cursor: pointer; color: var(--text-muted); border: 0.5px solid var(--border); background: var(--surface); font-family: inherit; }
@@ -1250,6 +1258,32 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   <div class="main-content">
   <!-- ===== PANEL: DASHBOARD ===== -->
   <div class="panel active" id="panel-dashboard" role="tabpanel">
+  <div class="card">
+    <div class="metric-grid">
+      <div class="metric highlight">
+        <div class="metric-label">💰 الرصيد الحالي</div>
+        <div class="metric-value large num" id="dash-kpi-balance">0</div>
+      </div>
+      <div class="metric success">
+        <div class="metric-label">📈 صافي الربح 2026</div>
+        <div class="metric-value large num" id="dash-kpi-profit">0</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">🧾 إجمالي المبيعات 2026</div>
+        <div class="metric-value large num" id="dash-kpi-sales">0</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">📦 إجمالي المخزون</div>
+        <div class="metric-value large num" id="dash-kpi-inventory">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title-large">🕘 آخر العمليات</div>
+    <div id="dash-recent-activity"></div>
+  </div>
+
   <div class="card">
     <div class="card-title-large">🎯 السنة المالية 2026</div>
     <div style="margin-bottom: 16px;">
@@ -3318,6 +3352,15 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     document.getElementById('dash-profit-header').textContent = formatNum(totalProfit);
     document.getElementById('dash-avg').textContent = formatNum(avgProfit);
 
+    // KPI row
+    const walletBalance = (state.transactions || []).reduce((s, t) => s + (t.deposit || 0) - (t.withdraw || 0), 0);
+    document.getElementById('dash-kpi-balance').textContent = formatNum(walletBalance);
+    document.getElementById('dash-kpi-profit').textContent = formatNum(totalProfit);
+    document.getElementById('dash-kpi-sales').textContent = formatNum(totalSales);
+    document.getElementById('dash-kpi-inventory').textContent = formatNum(inv.length);
+
+    renderRecentActivity();
+
     document.getElementById('dash-shipping').textContent = formatNum(counts.shipping);
     document.getElementById('dash-preparing').textContent = formatNum(counts.preparing);
     document.getElementById('dash-listed').textContent = formatNum(counts.listed);
@@ -3376,6 +3419,47 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     }
 
     renderMonthlyTimeline(sales2026);
+  }
+
+  // Combines recent sales + wallet transactions into one feed, newest first.
+  // Sales are dated DD/MM/YYYY, transactions ISO (YYYY-MM-DD) — both parsed
+  // to real Date objects so they can be merged and sorted together.
+  function renderRecentActivity(limit) {
+    limit = limit || 6;
+    const items = [];
+    (state.sales || []).forEach(s => {
+      const p = parseDateDDMMYYYY(s.date);
+      const d = p ? new Date(p.year, p.month - 1, p.day) : null;
+      if (d) items.push({ date: d, dateStr: s.date, icon: '💵', detail: `بيع ${s.model}`, amount: s.profit });
+    });
+    (state.transactions || []).forEach(t => {
+      const d = t.date ? new Date(t.date) : null;
+      if (d && !isNaN(d)) {
+        const amt = (t.deposit || 0) - (t.withdraw || 0);
+        items.push({ date: d, dateStr: formatTxnDate(t.date), icon: amt >= 0 ? '➕' : '➖', detail: (TXN_CAT_LABELS && TXN_CAT_LABELS[t.category]) || t.detail || 'حركة', amount: amt });
+      }
+    });
+    items.sort((a, b) => b.date - a.date);
+    const top = items.slice(0, limit);
+
+    const container = document.getElementById('dash-recent-activity');
+    if (!container) return;
+    if (top.length === 0) {
+      container.innerHTML = '<div class="empty-state">لا توجد عمليات بعد</div>';
+      return;
+    }
+    container.innerHTML = top.map(it => {
+      const cls = it.amount >= 0 ? 'success-text' : 'danger-text';
+      const sign = it.amount >= 0 ? '+' : '';
+      return `
+        <div class="activity-item">
+          <span class="activity-icon">${it.icon}</span>
+          <span class="activity-detail">${escapeHtml(it.detail)}</span>
+          <span class="activity-amount ${cls}">${sign}${formatNum(it.amount)} SAR</span>
+          <span class="activity-date">${escapeHtml(it.dateStr)}</span>
+        </div>
+      `;
+    }).join('');
   }
 
   // ============================================================
