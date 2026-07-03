@@ -122,6 +122,31 @@ body {
 .panel { display: none; }
 .panel.active { display: block; }
 
+/* ===== App layout: sidebar (desktop) + horizontal tabs (mobile) ===== */
+.app-layout { display: block; }
+.sidebar { display: none; }
+.main-content { min-width: 0; }
+@media (min-width: 900px) {
+  .app-layout { display: flex; align-items: flex-start; gap: 16px; }
+  .sidebar {
+    display: flex; flex-direction: column; gap: 2px;
+    width: 200px; flex-shrink: 0;
+    background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px;
+    padding: 10px; position: sticky; top: 12px;
+  }
+  .main-content { flex: 1; }
+  .app-layout > .tabs { display: none; } /* horizontal tabs hidden once the sidebar takes over */
+}
+.sidebar-tab {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 8px; cursor: pointer;
+  color: var(--text-muted); border: none; background: transparent;
+  font-family: inherit; font-size: 13.5px; text-align: right; width: 100%;
+}
+.sidebar-tab:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.sidebar-tab.active { background: var(--primary-light); color: var(--primary-text); font-weight: 500; }
+.sidebar-tab .tab-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+
 /* ===== Cards ===== */
 .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
 .card-title { font-size: 13px; color: var(--text-muted); margin: 0 0 12px; font-weight: 500; }
@@ -1199,19 +1224,32 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   </div>
 </div>
 
-<!-- ===== TABS ===== -->
-<div class="tabs" role="tablist">
-  <button class="tab active" data-tab="dashboard" role="tab" aria-selected="true">لوحة التحكم</button>
-  <button class="tab" data-tab="inventory" role="tab" aria-selected="false">المخزون</button>
-  <button class="tab" data-tab="accessories" role="tab" aria-selected="false">الإكسسوارات</button>
-  <button class="tab" data-tab="sales" role="tab" aria-selected="false">المبيعات</button>
-  <button class="tab" data-tab="fiscal" role="tab" aria-selected="false">السنوات المالية</button>
-  <button class="tab" data-tab="office" role="tab" aria-selected="false">حسابات Office</button>
-  <button class="tab" data-tab="wallet" role="tab" aria-selected="false">💰 الحصّالة</button>
-</div>
+<!-- ===== APP LAYOUT: SIDEBAR (desktop) + TABS (mobile) + CONTENT ===== -->
+<div class="app-layout">
+  <nav class="sidebar" aria-label="التنقل الرئيسي">
+    <button class="tab sidebar-tab active" data-tab="dashboard" role="tab" aria-selected="true"><span class="tab-icon">📊</span> لوحة التحكم</button>
+    <button class="tab sidebar-tab" data-tab="inventory" role="tab" aria-selected="false"><span class="tab-icon">📦</span> المخزون</button>
+    <button class="tab sidebar-tab" data-tab="accessories" role="tab" aria-selected="false"><span class="tab-icon">🎁</span> الإكسسوارات</button>
+    <button class="tab sidebar-tab" data-tab="sales" role="tab" aria-selected="false"><span class="tab-icon">💵</span> المبيعات</button>
+    <button class="tab sidebar-tab" data-tab="fiscal" role="tab" aria-selected="false"><span class="tab-icon">📅</span> السنوات المالية</button>
+    <button class="tab sidebar-tab" data-tab="office" role="tab" aria-selected="false"><span class="tab-icon">🔑</span> حسابات Office</button>
+    <button class="tab sidebar-tab" data-tab="wallet" role="tab" aria-selected="false"><span class="tab-icon">💰</span> الحصّالة</button>
+  </nav>
 
-<!-- ===== PANEL: DASHBOARD ===== -->
-<div class="panel active" id="panel-dashboard" role="tabpanel">
+  <!-- ===== TABS (mobile) ===== -->
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="dashboard" role="tab" aria-selected="true">لوحة التحكم</button>
+    <button class="tab" data-tab="inventory" role="tab" aria-selected="false">المخزون</button>
+    <button class="tab" data-tab="accessories" role="tab" aria-selected="false">الإكسسوارات</button>
+    <button class="tab" data-tab="sales" role="tab" aria-selected="false">المبيعات</button>
+    <button class="tab" data-tab="fiscal" role="tab" aria-selected="false">السنوات المالية</button>
+    <button class="tab" data-tab="office" role="tab" aria-selected="false">حسابات Office</button>
+    <button class="tab" data-tab="wallet" role="tab" aria-selected="false">💰 الحصّالة</button>
+  </div>
+
+  <div class="main-content">
+  <!-- ===== PANEL: DASHBOARD ===== -->
+  <div class="panel active" id="panel-dashboard" role="tabpanel">
   <div class="card">
     <div class="card-title-large">🎯 السنة المالية 2026</div>
     <div style="margin-bottom: 16px;">
@@ -1665,7 +1703,9 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       <span class="danger-text">المجموع السالب: <strong class="num"><span id="wallet-sum-out">0</span> SAR</strong></span>
     </div>
   </div>
-</div>
+  </div><!-- /panel-wallet -->
+  </div><!-- /main-content -->
+</div><!-- /app-layout -->
 
 <!-- ============================================================ -->
 <!-- ===== MODAL: TRANSACTION SPLITTER (v23) ===== -->
