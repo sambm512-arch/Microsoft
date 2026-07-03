@@ -2697,12 +2697,12 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       try {
         window.__fb.setDoc(window.__fb.STATE_DOC, data).catch(e => {
           console.error('Storage save failed:', e);
-          toast('فشل حفظ البيانات — تحقق من الاتصال', 'error');
+          toast('فشل حفظ البيانات: ' + (e && e.message ? e.message : e), 'error');
         });
         return true;
       } catch (e) {
         console.error('Storage save failed:', e);
-        toast('فشل حفظ البيانات', 'error');
+        toast('فشل حفظ البيانات: ' + (e && e.message ? e.message : e), 'error');
         return false;
       }
     }
