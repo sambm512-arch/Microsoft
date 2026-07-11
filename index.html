@@ -1472,6 +1472,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           <th style="width: 35px;">#</th>
           <th class="sales-round-col" style="width: 80px; display: none;">الجولة</th>
           <th>الموديل</th>
+          <th style="width: 110px;">Serial</th>
           <th style="width: 70px;">التكلفة</th>
           <th style="width: 70px;">الأدنى</th>
           <th style="width: 75px;">المستهدف</th>
@@ -3701,7 +3702,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     const isPre = salesYear === 'pre';
 
     if (sales.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="${isPre ? 12 : 11}" class="empty-state">لا توجد مبيعات لهذه السنة</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${isPre ? 13 : 12}" class="empty-state">لا توجد مبيعات لهذه السنة</td></tr>`;
     } else {
       tbody.innerHTML = sales.map((s, i) => {
         const seqStr = String(s.seq || (i+1)).padStart(2, '0');
@@ -3717,6 +3718,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
               <div style="font-weight: 500;">${escapeHtml(s.model)}</div>
               <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(s.specs || '—')}</div>
             </td>
+            <td class="mono">${escapeHtml(s.sourceSerial || s.serial || '—')}</td>
             <td class="mono">${formatNum(s.cost)}</td>
             <td class="mono">${formatNum(s.minPrice)}</td>
             <td class="mono">${formatNum(s.targetPrice)}</td>
