@@ -1409,10 +1409,28 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 <!-- ===== PANEL: ACCESSORIES ===== -->
 <div class="panel" id="panel-accessories" role="tabpanel">
   <div class="card">
+    <div class="card-title-large">💰 ملخص مصروف الإكسسوارات</div>
+    <div class="metric-grid">
+      <div class="metric">
+        <div class="metric-label">إجمالي المصروف</div>
+        <div class="metric-value num" id="acc-kpi-total">0</div>
+      </div>
+      <div class="metric success">
+        <div class="metric-label">✅ قيمة استُرجعت (ضُمّت لجهاز انباع)</div>
+        <div class="metric-value num" id="acc-kpi-recovered">0</div>
+      </div>
+      <div class="metric highlight">
+        <div class="metric-label">⏳ قيمة لسا ما استُرجعت</div>
+        <div class="metric-value num" id="acc-kpi-pending">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="info-banner">🎁 <strong>الإكسسوارات تختلف عن اللاب توبات:</strong> ما تباع لحالها. تنضم لأطقم اللاب توبات لما فاطمة تجمع طقم متكامل، وتكلفتها تنتقل لتصير جزء من تكلفة اللاب توب.</div>
-    <div class="card-title-large">🎁 الإكسسوارات المتوفرة (للضم مع اللاب توبات)</div>
+    <div class="card-title-large">🎁 الإكسسوارات (للضم مع اللاب توبات)</div>
     <table class="tbl">
-      <colgroup><col style="width: 90px;"><col style="width: 100px;"><col><col style="width: 90px;"><col style="width: 100px;"><col></colgroup>
+      <colgroup><col style="width: 90px;"><col style="width: 100px;"><col><col style="width: 90px;"><col style="width: 120px;"><col><col style="width: 110px;"></colgroup>
       <thead><tr>
         <th>المعرف</th>
         <th>📍 الموقع</th>
@@ -1420,6 +1438,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         <th>التكلفة</th>
         <th>الحالة</th>
         <th>ملاحظة</th>
+        <th></th>
       </tr></thead>
       <tbody id="acc-tbody"></tbody>
     </table>
@@ -2337,6 +2356,32 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           </div>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ===== MODAL: JOIN ACCESSORY TO DEVICE ===== -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="joinAccessoryModal" role="dialog" aria-modal="true" aria-labelledby="join-acc-title">
+  <div class="modal" style="max-width: 480px;">
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title" id="join-acc-title">🔗 ضم الإكسسوار لجهاز</h2>
+        <div class="modal-subtitle" id="join-acc-subtitle">—</div>
+      </div>
+      <button class="close-btn" data-close-modal="joinAccessoryModal" aria-label="إغلاق">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="info-banner">تكلفة الإكسسوار بتنضاف تلقائيًا لتكلفة الجهاز المختار.</div>
+      <div class="form-row">
+        <label for="join-acc-device">اختر الجهاز</label>
+        <select id="join-acc-device"></select>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end;">
+        <button type="button" class="btn" data-close-modal="joinAccessoryModal">إلغاء</button>
+        <button type="button" class="btn btn-primary" id="btn-confirm-join-accessory">🔗 ضم</button>
+      </div>
     </div>
   </div>
 </div>
@@ -3671,25 +3716,102 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   // ============================================================
   // RENDER: ACCESSORIES
   // ============================================================
+  // An accessory's cost counts as "recovered" once the device it was
+  // bundled into has actually sold (i.e. shows up in state.sales).
+  function isAccessoryRecovered(a) {
+    if (a.status !== 'bundled' || !a.bundledToDeviceId) return false;
+    return (state.sales || []).some(s => s.sourceDeviceId === a.bundledToDeviceId);
+  }
+
   function renderAccessories() {
     const tbody = document.getElementById('acc-tbody');
     if (state.accessories.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">لا توجد إكسسوارات</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="empty-state">لا توجد إكسسوارات</td></tr>`;
     } else {
-      tbody.innerHTML = state.accessories.map(a => `
+      tbody.innerHTML = state.accessories.map(a => {
+        const bundled = a.status === 'bundled';
+        const recovered = isAccessoryRecovered(a);
+        const statusHtml = bundled
+          ? `<span class="pill ${recovered ? 'pill-green' : 'pill-orange'}">${recovered ? '✅ ضُمّت وانباعت' : '🔗 ضُمّت لـ ' + escapeHtml(a.bundledToDeviceCode || '')}</span>`
+          : `<span class="pill pill-green">${escapeHtml(a.statusText)}</span>`;
+        const actionHtml = bundled
+          ? `<button class="btn btn-sm" data-action="unlink-accessory" data-acc-code="${escapeAttr(a.code)}">↩️ فك الضم</button>`
+          : `<button class="btn btn-sm btn-primary" data-action="join-accessory" data-acc-code="${escapeAttr(a.code)}">🔗 ضم لجهاز</button>`;
+        return `
         <tr class="loc-${a.location}-row">
           <td class="mono">${escapeHtml(a.code)}</td>
           <td><span class="loc-pill loc-${a.location}">${LOCATION_LABELS[a.location] || a.location}</span></td>
           <td><div style="font-weight: 500;">${escapeHtml(a.model)}</div></td>
           <td class="mono">${formatNum(a.cost)}</td>
-          <td><span class="pill pill-green">${escapeHtml(a.statusText)}</span></td>
+          <td>${statusHtml}</td>
           <td><span style="font-size: 12px; color: var(--text-muted);">${escapeHtml(a.note)}</span></td>
+          <td>${actionHtml}</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     }
     const totalCost = state.accessories.reduce((s, a) => s + a.cost, 0);
     document.getElementById('acc-total').textContent = `${state.accessories.length} إكسسوار`;
     document.getElementById('acc-value').textContent = `${formatNum(totalCost)} SAR`;
+
+    // KPI summary
+    const recoveredCost = state.accessories.filter(isAccessoryRecovered).reduce((s, a) => s + (a.cost || 0), 0);
+    document.getElementById('acc-kpi-total').textContent = formatNum(totalCost);
+    document.getElementById('acc-kpi-recovered').textContent = formatNum(recoveredCost);
+    document.getElementById('acc-kpi-pending').textContent = formatNum(totalCost - recoveredCost);
+  }
+
+  function openJoinAccessoryModal(accCode) {
+    const a = state.accessories.find(x => x.code === accCode);
+    if (!a) return;
+    const select = document.getElementById('join-acc-device');
+    const available = state.inventory.slice().sort((x, y) => (x.code || '').localeCompare(y.code || ''));
+    if (available.length === 0) {
+      toast('ما فيه أجهزة بالمخزون حاليًا', 'error');
+      return;
+    }
+    select.innerHTML = available.map(d => `<option value="${d.id}">${escapeHtml(d.code)} — ${escapeHtml(d.model)}</option>`).join('');
+    document.getElementById('join-acc-subtitle').textContent = `${a.code} — ${a.model} (${formatNum(a.cost)} SAR)`;
+    document.getElementById('joinAccessoryModal').dataset.accCode = accCode;
+    openModal('joinAccessoryModal');
+  }
+
+  function confirmJoinAccessory() {
+    const accCode = document.getElementById('joinAccessoryModal').dataset.accCode;
+    const deviceId = parseInt(document.getElementById('join-acc-device').value, 10);
+    const a = state.accessories.find(x => x.code === accCode);
+    const d = state.inventory.find(x => x.id === deviceId);
+    if (!a || !d) { toast('تعذّر إتمام الضم', 'error'); return; }
+
+    a.status = 'bundled';
+    a.statusText = '🔗 مضموم';
+    a.bundledToDeviceId = d.id;
+    a.bundledToDeviceCode = d.code;
+    a.bundledDate = todayDDMMYYYY();
+    d.cost = (d.cost || 0) + (a.cost || 0);
+
+    persist();
+    renderAccessories();
+    renderInventory();
+    closeModal('joinAccessoryModal');
+    toast(`تم ضم ${a.code} لـ ${d.code} — أُضيفت ${formatNum(a.cost)} SAR لتكلفة الجهاز`, 'success');
+  }
+
+  function unlinkAccessory(accCode) {
+    const a = state.accessories.find(x => x.code === accCode);
+    if (!a) return;
+    if (!confirm(`فك ضم ${a.code} عن ${a.bundledToDeviceCode || 'الجهاز'}؟\n\nتكلفتها (${formatNum(a.cost)} SAR) بتُخصم من تكلفة الجهاز لو لسا موجود بالمخزون.`)) return;
+    const d = state.inventory.find(x => x.id === a.bundledToDeviceId);
+    if (d) d.cost = Math.max(0, (d.cost || 0) - (a.cost || 0));
+    a.status = 'available';
+    a.statusText = '🟢 متوفر';
+    delete a.bundledToDeviceId;
+    delete a.bundledToDeviceCode;
+    delete a.bundledDate;
+    persist();
+    renderAccessories();
+    renderInventory();
+    toast('تم فك الضم', 'success');
   }
 
   // ============================================================
@@ -6857,6 +6979,10 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         openEditAccount(parseInt(btn.dataset.accountId, 10));
       } else if (action === 'undo-sale') {
         undoSale(parseInt(btn.dataset.seq, 10), btn.dataset.year);
+      } else if (action === 'join-accessory') {
+        openJoinAccessoryModal(btn.dataset.accCode);
+      } else if (action === 'unlink-accessory') {
+        unlinkAccessory(btn.dataset.accCode);
       }
     });
 
@@ -6944,6 +7070,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     document.getElementById('btn-save-account').addEventListener('click', saveAccount);
     document.getElementById('btn-delete-account').addEventListener('click', deleteAccount);
     document.getElementById('add-acc-install-pwd').addEventListener('input', autoGenerateCurrentPwd);
+    document.getElementById('btn-confirm-join-accessory').addEventListener('click', confirmJoinAccessory);
 
     // PDF download
     document.getElementById('btn-download-pdf').addEventListener('click', downloadPdf);
