@@ -3844,7 +3844,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         const actionHtml = bundled
           ? `<button class="btn btn-sm" data-action="unlink-accessory" data-acc-code="${escapeAttr(a.code)}">↩️ فك الضم</button>`
           : `<button class="btn btn-sm btn-primary" data-action="join-accessory" data-acc-code="${escapeAttr(a.code)}">🔗 ضم لجهاز</button>
-             <button class="btn btn-sm" data-action="convert-to-device" data-acc-code="${escapeAttr(a.code)}" title="لو هذي القطعة انضافت غلط كإكسسوار وهي جهاز">🔄 تحويل لجهاز</button>`;
+             <button class="btn btn-sm" data-action="convert-to-device" data-acc-code="${escapeAttr(a.code)}" title="لو هذي القطعة انضافت غلط كإكسسوار وهي جهاز">🔄 تحويل لجهاز</button>
+             <button class="btn btn-sm" data-action="split-accessory" data-acc-code="${escapeAttr(a.code)}" title="لو التكلفة هذي تمثّل كذا قطعة مجمّعة سوا (مثلاً 12 قلم بسعر واحد)">🔀 تقسيم لقطع</button>`;
         return `
         <tr class="loc-${a.location}-row">
           <td class="mono">${escapeHtml(a.code)}</td>
@@ -3936,19 +3937,72 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     const code = `DEV-${id}`;
     const cost = a.cost || 0;
     const status = a.location === 'usa' ? 'usa' : 'arrived';
-    state.inventory.push({
+    const newDev = {
       id, code, model: a.model, specs: '', serial: a.serial || '', location: a.location, cost,
       minPrice: Math.round(cost * (1 + state.meta.profitMargins.min)),
       targetPrice: Math.round(cost * (1 + state.meta.profitMargins.target)),
-      status, statusText: STATUS_LABELS[status], stage: status === 'usa' ? 0 : 2, note: a.note || '',
-      purchaseUSD: a.purchaseUSD, shippingUSD: a.shippingUSD, costUSD: a.costUSD
-    });
+      status, statusText: STATUS_LABELS[status], stage: status === 'usa' ? 0 : 2, note: a.note || ''
+    };
+    if (a.purchaseUSD != null) newDev.purchaseUSD = a.purchaseUSD;
+    if (a.shippingUSD != null) newDev.shippingUSD = a.shippingUSD;
+    if (a.costUSD != null) newDev.costUSD = a.costUSD;
+    state.inventory.push(newDev);
 
     persist();
     renderInventory();
     renderAccessories();
     renderDashboard();
     toast(`تم تحويل ${a.code} إلى ${code} (جهاز)`, 'success');
+  }
+
+  // For accessories added before the batch-quantity feature (or entered
+  // as one lump sum for several identical pieces, e.g. "12 pens" saved as
+  // a single record) — splits one accessory record into N independent
+  // ones, each carrying an even share of the cost, so they can be tracked
+  // and joined to devices individually going forward.
+  function splitAccessory(accCode) {
+    const a = state.accessories.find(x => x.code === accCode);
+    if (!a) return;
+    if (a.status === 'bundled') { toast('فك الضم عن الجهاز أولاً قبل التقسيم', 'error'); return; }
+
+    const input = prompt(`${a.code} — ${a.model}\nالتكلفة الحالية: ${formatNum(a.cost)} SAR\n\nكم عدد القطع الفعلي اللي تمثّلها هذي التكلفة؟`, '2');
+    if (input === null) return;
+    const n = parseInt(input, 10);
+    if (!n || n < 2) { toast('أدخل رقم صحيح أكبر من 1', 'error'); return; }
+    if (!confirm(`تقسيم ${a.code} لـ ${n} قطعة مستقلة، كل وحدة بنصيبها من التكلفة (${formatNum(round2(a.cost / n))} SAR تقريبًا)؟`)) return;
+
+    // Splits a total into N shares that sum back to the exact original
+    // total (plain division can lose/gain halalas across many units).
+    const splitEvenly = (total, count) => {
+      const totalCents = Math.round((total || 0) * 100);
+      const perCents = Math.floor(totalCents / count);
+      const remainder = totalCents - perCents * count;
+      return Array.from({ length: count }, (_, i) => round2((perCents + (i < remainder ? 1 : 0)) / 100));
+    };
+    const costShares = splitEvenly(a.cost, n);
+    const usdShares = a.costUSD != null ? splitEvenly(a.costUSD, n) : null;
+    const purchaseShares = a.purchaseUSD != null ? splitEvenly(a.purchaseUSD, n) : null;
+    const shippingShares = a.shippingUSD != null ? splitEvenly(a.shippingUSD, n) : null;
+
+    state.accessories = state.accessories.filter(x => x.code !== accCode);
+    const newCodes = [];
+    for (let i = 0; i < n; i++) {
+      const code = `ACC-${nextAccessoryId()}`;
+      newCodes.push(code);
+      const newAcc = {
+        code, location: a.location, model: a.model, cost: costShares[i],
+        status: 'available', statusText: '🟢 متوفر', note: a.note || '', serial: ''
+      };
+      if (usdShares) newAcc.costUSD = usdShares[i];
+      if (purchaseShares) newAcc.purchaseUSD = purchaseShares[i];
+      if (shippingShares) newAcc.shippingUSD = shippingShares[i];
+      state.accessories.push(newAcc);
+    }
+
+    persist();
+    renderAccessories();
+    renderDashboard();
+    toast(`تم تقسيم ${a.code} لـ ${n} قطعة: ${newCodes.join('، ')}`, 'success');
   }
 
   // ============================================================
@@ -6438,11 +6492,17 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 
     state.inventory = state.inventory.filter(x => x.id !== id);
     const code = `ACC-${nextAccessoryId()}`;
-    state.accessories.push({
+    const newAcc = {
       code, location: d.location, model: d.model + (d.specs ? ` (${d.specs})` : ''), cost: d.cost,
-      status: 'available', statusText: '🟢 متوفر', note: d.note || '', serial: d.serial || '',
-      purchaseUSD: d.purchaseUSD, shippingUSD: d.shippingUSD, costUSD: d.costUSD
-    });
+      status: 'available', statusText: '🟢 متوفر', note: d.note || '', serial: d.serial || ''
+    };
+    // Older records (pre-dating the purchase-batch feature) don't carry
+    // USD fields — Firestore rejects `undefined` values, so only copy
+    // them over when they actually exist.
+    if (d.purchaseUSD != null) newAcc.purchaseUSD = d.purchaseUSD;
+    if (d.shippingUSD != null) newAcc.shippingUSD = d.shippingUSD;
+    if (d.costUSD != null) newAcc.costUSD = d.costUSD;
+    state.accessories.push(newAcc);
 
     persist();
     renderInventory();
@@ -7385,6 +7445,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         unlinkAccessory(btn.dataset.accCode);
       } else if (action === 'convert-to-device') {
         convertAccessoryToDevice(btn.dataset.accCode);
+      } else if (action === 'split-accessory') {
+        splitAccessory(btn.dataset.accCode);
       }
     });
 
