@@ -2194,7 +2194,10 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       </div>
 
       <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: space-between; flex-wrap: wrap;">
-        <button class="btn btn-danger" id="btn-delete-device">🗑️ حذف الجهاز</button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn btn-danger" id="btn-delete-device">🗑️ حذف الجهاز</button>
+          <button class="btn" id="btn-convert-device" title="لو هذي القطعة انضافت غلط كجهاز وهي إكسسوار">🔄 تحويل لإكسسوار</button>
+        </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="btn" data-close-modal="deviceModal">إلغاء</button>
           <button class="btn btn-primary" id="btn-save-device">💾 حفظ التغييرات</button>
@@ -3840,7 +3843,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           : `<span class="pill pill-green">${escapeHtml(a.statusText)}</span>`;
         const actionHtml = bundled
           ? `<button class="btn btn-sm" data-action="unlink-accessory" data-acc-code="${escapeAttr(a.code)}">↩️ فك الضم</button>`
-          : `<button class="btn btn-sm btn-primary" data-action="join-accessory" data-acc-code="${escapeAttr(a.code)}">🔗 ضم لجهاز</button>`;
+          : `<button class="btn btn-sm btn-primary" data-action="join-accessory" data-acc-code="${escapeAttr(a.code)}">🔗 ضم لجهاز</button>
+             <button class="btn btn-sm" data-action="convert-to-device" data-acc-code="${escapeAttr(a.code)}" title="لو هذي القطعة انضافت غلط كإكسسوار وهي جهاز">🔄 تحويل لجهاز</button>`;
         return `
         <tr class="loc-${a.location}-row">
           <td class="mono">${escapeHtml(a.code)}</td>
@@ -3916,6 +3920,35 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     renderAccessories();
     renderInventory();
     toast('تم فك الضم', 'success');
+  }
+
+  // Reclassify a wrongly-typed accessory as a device (and back, via
+  // convertDeviceToAccessory below) — same cost carried over, no new
+  // wallet transaction since the purchase was already recorded.
+  function convertAccessoryToDevice(accCode) {
+    const a = state.accessories.find(x => x.code === accCode);
+    if (!a) return;
+    if (a.status === 'bundled') { toast('فك الضم عن الجهاز أولاً قبل التحويل', 'error'); return; }
+    if (!confirm(`تحويل ${a.code} (${a.model}) من "إكسسوار" إلى "جهاز"؟`)) return;
+
+    state.accessories = state.accessories.filter(x => x.code !== accCode);
+    const id = nextDeviceId();
+    const code = `DEV-${id}`;
+    const cost = a.cost || 0;
+    const status = a.location === 'usa' ? 'usa' : 'arrived';
+    state.inventory.push({
+      id, code, model: a.model, specs: '', serial: a.serial || '', location: a.location, cost,
+      minPrice: Math.round(cost * (1 + state.meta.profitMargins.min)),
+      targetPrice: Math.round(cost * (1 + state.meta.profitMargins.target)),
+      status, statusText: STATUS_LABELS[status], stage: status === 'usa' ? 0 : 2, note: a.note || '',
+      purchaseUSD: a.purchaseUSD, shippingUSD: a.shippingUSD, costUSD: a.costUSD
+    });
+
+    persist();
+    renderInventory();
+    renderAccessories();
+    renderDashboard();
+    toast(`تم تحويل ${a.code} إلى ${code} (جهاز)`, 'success');
   }
 
   // ============================================================
@@ -6368,6 +6401,29 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     toast(`تم حذف ${d.code}`, 'success');
   }
 
+  // See convertAccessoryToDevice above for the reverse direction.
+  function convertDeviceToAccessory() {
+    const id = parseInt(document.getElementById('deviceModal').dataset.deviceId);
+    const d = state.inventory.find(x => x.id === id);
+    if (!d) return;
+    if (!confirm(`تحويل ${d.code} (${d.model}) من "جهاز" إلى "إكسسوار"؟\n\nراح ينحذف من المخزون وينضاف كإكسسوار بنفس التكلفة (${formatNum(d.cost)} SAR).`)) return;
+
+    state.inventory = state.inventory.filter(x => x.id !== id);
+    const code = `ACC-${nextAccessoryId()}`;
+    state.accessories.push({
+      code, location: d.location, model: d.model + (d.specs ? ` (${d.specs})` : ''), cost: d.cost,
+      status: 'available', statusText: '🟢 متوفر', note: d.note || '', serial: d.serial || '',
+      purchaseUSD: d.purchaseUSD, shippingUSD: d.shippingUSD, costUSD: d.costUSD
+    });
+
+    persist();
+    renderInventory();
+    renderAccessories();
+    renderDashboard();
+    closeModal('deviceModal');
+    toast(`تم تحويل ${d.code} إلى ${code} (إكسسوار)`, 'success');
+  }
+
   // ============================================================
   // SELL DEVICE
   // ============================================================
@@ -7299,6 +7355,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         openJoinAccessoryModal(btn.dataset.accCode);
       } else if (action === 'unlink-accessory') {
         unlinkAccessory(btn.dataset.accCode);
+      } else if (action === 'convert-to-device') {
+        convertAccessoryToDevice(btn.dataset.accCode);
       }
     });
 
@@ -7338,6 +7396,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     // Device modal actions
     document.getElementById('btn-save-device').addEventListener('click', saveDeviceChanges);
     document.getElementById('btn-delete-device').addEventListener('click', deleteDevice);
+    document.getElementById('btn-convert-device').addEventListener('click', convertDeviceToAccessory);
     // v25: edit-in-place for specs & costs
     document.getElementById('btn-edit-specs').addEventListener('click', () => toggleSpecsEdit(true));
     document.getElementById('btn-cancel-specs').addEventListener('click', () => toggleSpecsEdit(false));
