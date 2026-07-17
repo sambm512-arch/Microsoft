@@ -1456,9 +1456,21 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       <div class="card-title-large">🎁 الإكسسوارات (للضم مع اللاب توبات)</div>
       <button class="btn btn-primary" id="btn-add-batch-accessories">📦 دفعة شراء جديدة</button>
     </div>
+    <div id="acc-bulk-bar" style="display: none; align-items: center; gap: 8px; margin-bottom: 10px; padding: 8px 10px; background: var(--soft-bg); border-radius: 8px; flex-wrap: wrap;">
+      <span id="acc-bulk-count" style="font-size: 12px; color: var(--text-muted);">0 محدد</span>
+      <span>📍 نقل الكل إلى:</span>
+      <select id="acc-bulk-location">
+        <option value="jeddah">🏙️ جدة</option>
+        <option value="riyadh">🏛️ الرياض</option>
+        <option value="usa">🇺🇸 أمريكا</option>
+      </select>
+      <button class="btn btn-sm btn-primary" id="btn-acc-bulk-apply">تحديث الموقع</button>
+      <button class="btn btn-sm" id="btn-acc-bulk-clear">إلغاء التحديد</button>
+    </div>
     <table class="tbl">
-      <colgroup><col style="width: 90px;"><col style="width: 100px;"><col><col style="width: 90px;"><col style="width: 120px;"><col><col style="width: 110px;"></colgroup>
+      <colgroup><col style="width: 34px;"><col style="width: 90px;"><col style="width: 100px;"><col><col style="width: 90px;"><col style="width: 120px;"><col><col style="width: 110px;"></colgroup>
       <thead><tr>
+        <th><input type="checkbox" id="acc-select-all" aria-label="تحديد الكل"></th>
         <th>المعرف</th>
         <th>📍 الموقع</th>
         <th>الموديل</th>
@@ -2527,7 +2539,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           <textarea id="edit-accessory-note" rows="2"></textarea>
         </div>
       </form>
-      <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: space-between; flex-wrap: wrap;">
+      <div style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; padding-top: 12px; border-top: 0.5px solid var(--border);">
+        <button type="button" class="btn btn-sm" id="btn-convert-accessory-to-device" title="لو هذي القطعة انضافت غلط كإكسسوار وهي جهاز">🔄 تحويل لجهاز</button>
+        <button type="button" class="btn btn-sm" id="btn-split-accessory-modal" title="لو التكلفة هذي تمثّل كذا قطعة مجمّعة سوا (مثلاً 12 قلم بسعر واحد)">🔀 تقسيم لقطع</button>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 12px; justify-content: space-between; flex-wrap: wrap;">
         <button type="button" class="btn btn-danger" id="btn-delete-accessory">🗑️ حذف</button>
         <div style="display: flex; gap: 8px;">
           <button type="button" class="btn" data-close-modal="editAccessoryModal">إلغاء</button>
@@ -3882,10 +3898,15 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     return (state.sales || []).some(s => s.sourceDeviceId === a.bundledToDeviceId);
   }
 
+  // Codes checked for the bulk "move to location" action below. A Set
+  // survives re-renders (accessory list changes shape) since it just
+  // stops matching codes that no longer exist — nothing to reconcile.
+  let selectedAccessoryCodes = new Set();
+
   function renderAccessories() {
     const tbody = document.getElementById('acc-tbody');
     if (state.accessories.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="empty-state">لا توجد إكسسوارات</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="empty-state">لا توجد إكسسوارات</td></tr>`;
     } else {
       tbody.innerHTML = state.accessories.map(a => {
         const bundled = a.status === 'bundled';
@@ -3896,11 +3917,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         const actionHtml = bundled
           ? `<button class="btn btn-sm" data-action="unlink-accessory" data-acc-code="${escapeAttr(a.code)}">↩️ فك الضم</button>`
           : `<button class="btn btn-sm btn-primary" data-action="join-accessory" data-acc-code="${escapeAttr(a.code)}">🔗 ضم لجهاز</button>
-             <button class="btn btn-sm" data-action="convert-to-device" data-acc-code="${escapeAttr(a.code)}" title="لو هذي القطعة انضافت غلط كإكسسوار وهي جهاز">🔄 تحويل لجهاز</button>
-             <button class="btn btn-sm" data-action="split-accessory" data-acc-code="${escapeAttr(a.code)}" title="لو التكلفة هذي تمثّل كذا قطعة مجمّعة سوا (مثلاً 12 قلم بسعر واحد)">🔀 تقسيم لقطع</button>
-             <button class="btn btn-sm" data-action="edit-accessory" data-acc-code="${escapeAttr(a.code)}" title="تعديل أو حذف — لتصحيح خطأ">✏️</button>`;
+             <button class="btn btn-sm" data-action="edit-accessory" data-acc-code="${escapeAttr(a.code)}">✏️ تعديل</button>`;
+        const checked = selectedAccessoryCodes.has(a.code) ? 'checked' : '';
         return `
         <tr class="loc-${a.location}-row">
+          <td><input type="checkbox" class="acc-select-checkbox" data-acc-code="${escapeAttr(a.code)}" ${checked}></td>
           <td class="mono">${escapeHtml(a.code)}</td>
           <td><span class="loc-pill loc-${a.location}">${LOCATION_LABELS[a.location] || a.location}</span></td>
           <td><div style="font-weight: 500;">${escapeHtml(a.model)}</div></td>
@@ -3921,6 +3942,38 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     document.getElementById('acc-kpi-total').textContent = formatNum(totalCost);
     document.getElementById('acc-kpi-recovered').textContent = formatNum(recoveredCost);
     document.getElementById('acc-kpi-pending').textContent = formatNum(totalCost - recoveredCost);
+
+    document.querySelectorAll('.acc-select-checkbox').forEach(cb => {
+      cb.addEventListener('change', e => {
+        const code = e.target.dataset.accCode;
+        if (e.target.checked) selectedAccessoryCodes.add(code);
+        else selectedAccessoryCodes.delete(code);
+        updateAccBulkBar();
+      });
+    });
+    const selectAll = document.getElementById('acc-select-all');
+    selectAll.checked = state.accessories.length > 0 && selectedAccessoryCodes.size === state.accessories.length;
+    updateAccBulkBar();
+  }
+
+  function updateAccBulkBar() {
+    const bar = document.getElementById('acc-bulk-bar');
+    const count = selectedAccessoryCodes.size;
+    document.getElementById('acc-bulk-count').textContent = `${count} محدد`;
+    bar.style.display = count > 0 ? 'flex' : 'none';
+  }
+
+  function applyAccBulkLocation() {
+    if (selectedAccessoryCodes.size === 0) return;
+    const loc = document.getElementById('acc-bulk-location').value;
+    const count = selectedAccessoryCodes.size;
+    state.accessories.forEach(a => {
+      if (selectedAccessoryCodes.has(a.code)) a.location = loc;
+    });
+    selectedAccessoryCodes.clear();
+    persist();
+    renderAccessories();
+    toast(`تم نقل ${count} قطعة إلى ${LOCATION_LABELS[loc] || loc}`, 'success');
   }
 
   function openJoinAccessoryModal(accCode) {
@@ -4005,6 +4058,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     renderInventory();
     renderAccessories();
     renderDashboard();
+    closeModal('editAccessoryModal');
     toast(`تم تحويل ${a.code} إلى ${code} (جهاز)`, 'success');
   }
 
@@ -4063,6 +4117,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     persist();
     renderAccessories();
     renderDashboard();
+    closeModal('editAccessoryModal');
     toast(`تم تقسيم ${a.code} لـ ${n} قطعة: ${newCodes.join('، ')}`, 'success');
   }
 
@@ -5823,26 +5878,56 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           if (field === 'priceUSD') {
             batchRows[idx].priceUSD = parseFloat(e.target.value) || 0;
             distributeShipping();
-            renderBatchRows();
+            updateBatchRowDisplays();
             updateBatchTotals();
           } else if (field === 'shippingUSD') {
             batchRows[idx].shippingUSD = parseFloat(e.target.value) || 0;
             batchRows[idx].shippingManual = true;
             distributeShipping();
-            renderBatchRows();
+            updateBatchRowDisplays();
             updateBatchTotals();
           } else if (field === 'type') {
             batchRows[idx].type = e.target.value;
             renderBatchRows();
           } else if (field === 'quantity') {
             batchRows[idx].quantity = Math.max(1, parseInt(e.target.value, 10) || 1);
-            renderBatchRows();
+            updateBatchRowDisplays();
           } else {
             batchRows[idx][field] = e.target.value;
           }
         });
       });
       rowEl.querySelector('[data-action="remove"]').addEventListener('click', () => removeBatchRow(idx));
+    });
+  }
+
+  // Rebuilding the whole row list on every keystroke (via renderBatchRows)
+  // destroyed and recreated the input the user was actively typing into,
+  // so the browser lost focus after every single digit — you could type
+  // "1" but the next keystroke landed nowhere. This only touches the
+  // derived bits (other rows' auto shipping shares, the total-SAR preview,
+  // the serial field's disabled state) and never rewrites the field
+  // currently focused, so typing multi-digit numbers works normally.
+  function updateBatchRowDisplays() {
+    const container = document.getElementById('batch-rows');
+    batchRows.forEach((r, idx) => {
+      const rowEl = container.querySelector(`.batch-row[data-row-idx="${idx}"]`);
+      if (!rowEl) return;
+      const shippingInput = rowEl.querySelector('[data-field="shippingUSD"]');
+      if (shippingInput && document.activeElement !== shippingInput) {
+        shippingInput.value = r.shippingUSD || '';
+        shippingInput.title = r.shippingManual ? 'مُعدَّل يدويًا' : 'موزَّع تلقائيًا حسب السعر';
+      }
+      const t = batchRowTotals(r);
+      const totalSpan = rowEl.querySelector('span.mono');
+      if (totalSpan) {
+        totalSpan.innerHTML = `${formatNum(t.rowTotalSAR)} SAR${t.qty > 1 ? `<div style="color: var(--text-faint);">${formatNum(t.unitCostSAR)} SAR/قطعة</div>` : ''}`;
+      }
+      const serialInput = rowEl.querySelector('[data-field="serial"]');
+      if (serialInput) {
+        serialInput.disabled = t.qty > 1;
+        serialInput.title = t.qty > 1 ? 'ما ينحفظ Serial لو الكمية أكثر من قطعة — كل قطعة تنضاف بدون Serial' : '';
+      }
     });
   }
 
@@ -7559,10 +7644,6 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         openJoinAccessoryModal(btn.dataset.accCode);
       } else if (action === 'unlink-accessory') {
         unlinkAccessory(btn.dataset.accCode);
-      } else if (action === 'convert-to-device') {
-        convertAccessoryToDevice(btn.dataset.accCode);
-      } else if (action === 'split-accessory') {
-        splitAccessory(btn.dataset.accCode);
       } else if (action === 'edit-accessory') {
         openEditAccessoryModal(btn.dataset.accCode);
       }
@@ -7665,9 +7746,24 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     document.getElementById('btn-delete-account').addEventListener('click', deleteAccount);
     document.getElementById('add-acc-install-pwd').addEventListener('input', autoGenerateCurrentPwd);
     document.getElementById('btn-confirm-join-accessory').addEventListener('click', confirmJoinAccessory);
+    document.getElementById('acc-select-all').addEventListener('change', e => {
+      selectedAccessoryCodes = e.target.checked ? new Set(state.accessories.map(a => a.code)) : new Set();
+      renderAccessories();
+    });
+    document.getElementById('btn-acc-bulk-apply').addEventListener('click', applyAccBulkLocation);
+    document.getElementById('btn-acc-bulk-clear').addEventListener('click', () => {
+      selectedAccessoryCodes.clear();
+      renderAccessories();
+    });
     document.getElementById('btn-save-accessory').addEventListener('click', saveAccessoryEdit);
     document.getElementById('btn-delete-accessory').addEventListener('click', () => {
       deleteAccessory(document.getElementById('editAccessoryModal').dataset.accCode);
+    });
+    document.getElementById('btn-convert-accessory-to-device').addEventListener('click', () => {
+      convertAccessoryToDevice(document.getElementById('editAccessoryModal').dataset.accCode);
+    });
+    document.getElementById('btn-split-accessory-modal').addEventListener('click', () => {
+      splitAccessory(document.getElementById('editAccessoryModal').dataset.accCode);
     });
 
     // PDF download
