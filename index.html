@@ -4022,7 +4022,15 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     if (input === null || input.trim() === '') return;
     const n = parseInt(input, 10);
     if (!n || n < 2) { toast('أدخل رقم صحيح أكبر من 1', 'error'); return; }
-    if (!confirm(`تقسيم ${a.code} لـ ${n} قطعة مستقلة، كل وحدة بنصيبها من التكلفة (${formatNum(round2(a.cost / n))} SAR تقريبًا)؟\n\nتأكد إنك ما تسويها على قطعة وحدة بالغلط.`)) return;
+
+    // The current model text is often a lot description (e.g. "Lot of 10
+    // Charger Microsoft 65W") — let the user rename it to the per-unit
+    // name (e.g. "Charger Microsoft 65W") for the resulting pieces.
+    const nameInput = prompt(`اسم القطعة الواحدة بعد التقسيم (عدّله لو الاسم الحالي يذكر الكمية):`, a.model);
+    if (nameInput === null) return;
+    const newModel = nameInput.trim() || a.model;
+
+    if (!confirm(`تقسيم ${a.code} لـ ${n} قطعة باسم "${newModel}"، كل وحدة بنصيبها من التكلفة (${formatNum(round2(a.cost / n))} SAR تقريبًا)؟\n\nتأكد إنك ما تسويها على قطعة وحدة بالغلط.`)) return;
 
     // Splits a total into N shares that sum back to the exact original
     // total (plain division can lose/gain halalas across many units).
@@ -4043,7 +4051,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       const code = `ACC-${nextAccessoryId()}`;
       newCodes.push(code);
       const newAcc = {
-        code, location: a.location, model: a.model, cost: costShares[i],
+        code, location: a.location, model: newModel, cost: costShares[i],
         status: 'available', statusText: '🟢 متوفر', note: a.note || '', serial: ''
       };
       if (usdShares) newAcc.costUSD = usdShares[i];
