@@ -3359,8 +3359,28 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   }
 
 
+  // Device photos live in their own per-device Firestore document (see
+  // photos_<code> in the module script) — never in the main state doc.
+  // Firestore hard-caps a document at 1 MiB total; a single compressed
+  // photo alone can approach that, so embedding photos here would silently
+  // fail to save (the write is async — by the time it fails, the "saved"
+  // toast has already fired). This strips any stray .photos field before
+  // every main-state write as a safety net, even if some future code path
+  // accidentally re-attaches one to a device in memory.
+  function stripPhotosForMainDoc(s) {
+    if (!s || !s.inventory || !s.inventory.some(d => d.photos)) return s;
+    return {
+      ...s,
+      inventory: s.inventory.map(d => {
+        if (!d.photos) return d;
+        const { photos, ...rest } = d;
+        return rest;
+      })
+    };
+  }
+
   function persist() {
-    Storage.save(state);
+    Storage.save(stripPhotosForMainDoc(state));
     // v24.3: Ensure wallet UI always reflects latest state.
     // Some flows used to call persist() without renderWallet() — this guarantees
     // the wallet cards (Mohamed balance, purchases, etc.) are always fresh.
@@ -6494,7 +6514,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   // ============================================================
   let lastFocusedElement = null;
 
-  function openDeviceModal(deviceId) {
+  async function openDeviceModal(deviceId) {
     const d = state.inventory.find(x => x.id === deviceId);
     if (!d) {
       toast('الجهاز غير موجود', 'error');
@@ -6550,11 +6570,23 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     document.getElementById('dev-costs-edit').style.display = 'none';
     document.getElementById('btn-edit-costs').style.display = '';
 
-    // Render notes timeline & photos gallery
+    // Render notes timeline & photos gallery — show whatever's already in
+    // memory immediately so opening a device never waits on a network
+    // round trip, then refresh once the dedicated photos doc loads.
     renderDeviceNotes(d);
     renderDevicePhotos(d);
 
     openModal('deviceModal');
+
+    const cloudPhotos = await loadDevicePhotosDoc(d.code);
+    if (cloudPhotos !== null) {
+      d.photos = cloudPhotos;
+      // The user may have already clicked into a different device by the
+      // time this resolves — only redraw if this device's modal is still open.
+      if (parseInt(document.getElementById('deviceModal').dataset.deviceId, 10) === d.id) {
+        renderDevicePhotos(d);
+      }
+    }
   }
 
   function saveDeviceChanges() {
@@ -6681,6 +6713,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     renderInventory();
     renderDashboard();
     closeModal('deviceModal');
+    // Best-effort cleanup of the device's separate photos doc — not
+    // critical if it fails, just an orphaned doc left behind.
+    if (window.__fb && window.__fb.deleteCustomDoc) {
+      window.__fb.deleteCustomDoc('photos_' + d.code).catch(() => {});
+    }
     toast(`تم حذف ${d.code}`, 'success');
   }
 
@@ -7097,11 +7134,31 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     `).join('');
   }
 
+  // Photos live in their own doc ('photos_<code>' in the surfaceHub
+  // collection) instead of the main state — see stripPhotosForMainDoc()
+  // above for why. Returns the photo array, or null if there's no doc yet
+  // (brand new device, or nothing uploaded since this fix).
+  async function loadDevicePhotosDoc(code) {
+    if (!window.__fb || !window.__fb.getCustomDoc) return null;
+    try {
+      const snap = await window.__fb.getCustomDoc('photos_' + code);
+      return snap.exists() ? (snap.data().photos || []) : null;
+    } catch (e) {
+      console.error('Failed to load device photos:', e);
+      return null;
+    }
+  }
+
+  async function saveDevicePhotosDoc(code, photos) {
+    await window.__fb.setCustomDoc('photos_' + code, { photos });
+  }
+
   async function addDevicePhotos(files) {
     const id = parseInt(document.getElementById('deviceModal').dataset.deviceId);
     const d = state.inventory.find(x => x.id === id);
     if (!d) return;
     if (!d.photos) d.photos = [];
+    const before = d.photos.slice();
 
     const fileArr = Array.from(files);
     let added = 0, failed = 0;
@@ -7120,28 +7177,42 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         failed++;
       }
     }
+    renderDevicePhotos(d); // optimistic — confirmed by the save below
+
     try {
-      persist();
+      await saveDevicePhotosDoc(d.code, d.photos);
     } catch (e) {
-      // Storage may overflow - rollback
-      d.photos = d.photos.slice(0, d.photos.length - added);
-      toast('فشل الحفظ — مساحة التخزين ممتلئة. احذف صور قديمة.', 'error');
+      // The write really did fail (e.g. this device's photos doc is over
+      // Firestore's 1MiB cap) — roll back so the UI doesn't show photos
+      // that aren't actually saved anywhere.
+      console.error('Photo save failed:', e);
+      d.photos = before;
       renderDevicePhotos(d);
+      toast('فشل حفظ الصور — قد تكون كبيرة الحجم أو فيه مشكلة اتصال. جرّب صور أقل أو أصغر.', 'error');
       return;
     }
-    renderDevicePhotos(d);
+
     if (added) toast(`تمت إضافة ${added} ${added === 1 ? 'صورة' : 'صور'}`, 'success');
     if (failed) toast(`فشل ${failed} ${failed === 1 ? 'صورة' : 'صور'}`, 'error');
   }
 
-  function deleteDevicePhoto(photoId) {
+  async function deleteDevicePhoto(photoId) {
     const id = parseInt(document.getElementById('deviceModal').dataset.deviceId);
     const d = state.inventory.find(x => x.id === id);
     if (!d || !d.photos) return;
     if (!confirm('حذف هذه الصورة؟')) return;
+    const before = d.photos.slice();
     d.photos = d.photos.filter(p => p.id !== photoId);
-    persist();
     renderDevicePhotos(d);
+    try {
+      await saveDevicePhotosDoc(d.code, d.photos);
+    } catch (e) {
+      console.error('Photo delete save failed:', e);
+      d.photos = before;
+      renderDevicePhotos(d);
+      toast('فشل حذف الصورة، حاول مرة ثانية', 'error');
+      return;
+    }
     toast('تم حذف الصورة', 'success');
   }
 
@@ -8054,7 +8125,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
   import {
-    getFirestore, doc, getDoc, setDoc, onSnapshot
+    getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 
   if (LOGIN_ENABLED) {
@@ -8089,7 +8160,19 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     STATE_DOC = doc(db, 'surfaceHub', 'state');
 
     // Bridge for the classic (non-module) app script above.
-    window.__fb = { getDoc: () => getDoc(STATE_DOC), setDoc: (data) => setDoc(STATE_DOC, data), STATE_DOC };
+    // getCustomDoc/setCustomDoc/deleteCustomDoc address any document under
+    // the same 'surfaceHub' collection (used to keep device photos out of
+    // the main state doc — see the photos_<code> docs below). The existing
+    // Firestore rule (match /surfaceHub/{docId}) already covers these, no
+    // rules change needed.
+    window.__fb = {
+      getDoc: () => getDoc(STATE_DOC),
+      setDoc: (data) => setDoc(STATE_DOC, data),
+      STATE_DOC,
+      getCustomDoc: (id) => getDoc(doc(db, 'surfaceHub', id)),
+      setCustomDoc: (id, data) => setDoc(doc(db, 'surfaceHub', id), data),
+      deleteCustomDoc: (id) => deleteDoc(doc(db, 'surfaceHub', id))
+    };
 
     loginStatus.style.display = 'none';
     loginForm.style.display = '';
