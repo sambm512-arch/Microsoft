@@ -7072,9 +7072,15 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   // ============================================================
   // DEVICE PHOTOS (with auto-compression)
   // ============================================================
-  const PHOTO_MAX_DIM = 1280;       // resize to fit within 1280×1280
-  const PHOTO_QUALITY = 0.78;       // JPEG quality
-  const PHOTO_MAX_BYTES = 1_500_000; // ~1.5MB after compression cap
+  const PHOTO_MAX_DIM = 1280;       // starting resize target (shrinks further below if needed)
+  const PHOTO_MIN_DIM = 480;        // don't shrink past this even to hit the byte target
+  const PHOTO_QUALITY = 0.78;       // starting JPEG quality
+  // Firestore hard-caps a whole document at 1 MiB (1,048,576 bytes), and a
+  // device's photos doc can hold several photos, not just one — so each
+  // photo needs to leave real headroom, not approach the ceiling alone.
+  // This was previously 1.5MB, which is already bigger than the entire
+  // per-document budget on its own (that's the "حجم الصور" error).
+  const PHOTO_MAX_BYTES = 200_000; // ~200KB per photo — room for ~5 photos/device
 
   function compressImage(file) {
     return new Promise((resolve, reject) => {
@@ -7088,25 +7094,39 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         const img = new Image();
         img.onerror = () => reject(new Error('فشل تحميل الصورة'));
         img.onload = () => {
-          let { width, height } = img;
-          if (width > PHOTO_MAX_DIM || height > PHOTO_MAX_DIM) {
-            const ratio = Math.min(PHOTO_MAX_DIM / width, PHOTO_MAX_DIM / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(0, 0, width, height);
-          ctx.drawImage(img, 0, 0, width, height);
-          let quality = PHOTO_QUALITY;
-          let dataUrl = canvas.toDataURL('image/jpeg', quality);
-          // If still too big, reduce quality progressively
-          while (dataUrl.length > PHOTO_MAX_BYTES && quality > 0.4) {
-            quality -= 0.1;
+          let dim = PHOTO_MAX_DIM;
+          let dataUrl, width, height, quality;
+
+          // Two-stage shrink: reduce JPEG quality first: if that alone can't
+          // hit the byte target (busy/high-detail photos compress poorly),
+          // also shrink the dimensions and try again, down to PHOTO_MIN_DIM.
+          do {
+            width = img.width; height = img.height;
+            if (width > dim || height > dim) {
+              const ratio = Math.min(dim / width, dim / height);
+              width = Math.round(width * ratio);
+              height = Math.round(height * ratio);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+
+            quality = PHOTO_QUALITY;
             dataUrl = canvas.toDataURL('image/jpeg', quality);
+            while (dataUrl.length > PHOTO_MAX_BYTES && quality > 0.35) {
+              quality -= 0.1;
+              dataUrl = canvas.toDataURL('image/jpeg', quality);
+            }
+            dim = Math.round(dim * 0.75);
+          } while (dataUrl.length > PHOTO_MAX_BYTES && dim >= PHOTO_MIN_DIM);
+
+          if (dataUrl.length > PHOTO_MAX_BYTES) {
+            reject(new Error('الصورة معقّدة جدًا ولا تنضغط تحت الحجم المسموح — جرّب صورة ثانية'));
+            return;
           }
           resolve({ dataUrl, width, height, quality });
         };
