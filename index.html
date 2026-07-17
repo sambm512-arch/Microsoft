@@ -2487,6 +2487,58 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 </div>
 
 <!-- ============================================================ -->
+<!-- ===== MODAL: EDIT ACCESSORY ===== -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="editAccessoryModal" role="dialog" aria-modal="true" aria-labelledby="edit-accessory-title">
+  <div class="modal" style="max-width: 480px;">
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title" id="edit-accessory-title">✏️ تعديل إكسسوار</h2>
+        <div class="modal-subtitle" id="edit-accessory-subtitle">—</div>
+      </div>
+      <button class="close-btn" data-close-modal="editAccessoryModal" aria-label="إغلاق">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="edit-accessory-form" onsubmit="return false;">
+        <div class="form-row">
+          <label for="edit-accessory-model">الموديل / الاسم *</label>
+          <input type="text" id="edit-accessory-model" required>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-row">
+            <label for="edit-accessory-location">الموقع</label>
+            <select id="edit-accessory-location">
+              <option value="jeddah">🏙️ جدة</option>
+              <option value="riyadh">🏛️ الرياض</option>
+              <option value="usa">🇺🇸 أمريكا</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="edit-accessory-serial">Serial</label>
+            <input type="text" id="edit-accessory-serial" placeholder="اختياري">
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="edit-accessory-cost">التكلفة (SAR) *</label>
+          <input type="number" id="edit-accessory-cost" min="0" step="any" required>
+        </div>
+        <div class="form-row">
+          <label for="edit-accessory-note">ملاحظة</label>
+          <textarea id="edit-accessory-note" rows="2"></textarea>
+        </div>
+      </form>
+      <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: space-between; flex-wrap: wrap;">
+        <button type="button" class="btn btn-danger" id="btn-delete-accessory">🗑️ حذف</button>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn" data-close-modal="editAccessoryModal">إلغاء</button>
+          <button type="button" class="btn btn-primary" id="btn-save-accessory">💾 حفظ التغييرات</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- ===== MODAL: PDF EXPORT ===== -->
 <!-- ============================================================ -->
 <div class="modal-overlay" id="pdfModal" role="dialog" aria-modal="true" aria-labelledby="pdf-title">
@@ -3845,7 +3897,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           ? `<button class="btn btn-sm" data-action="unlink-accessory" data-acc-code="${escapeAttr(a.code)}">↩️ فك الضم</button>`
           : `<button class="btn btn-sm btn-primary" data-action="join-accessory" data-acc-code="${escapeAttr(a.code)}">🔗 ضم لجهاز</button>
              <button class="btn btn-sm" data-action="convert-to-device" data-acc-code="${escapeAttr(a.code)}" title="لو هذي القطعة انضافت غلط كإكسسوار وهي جهاز">🔄 تحويل لجهاز</button>
-             <button class="btn btn-sm" data-action="split-accessory" data-acc-code="${escapeAttr(a.code)}" title="لو التكلفة هذي تمثّل كذا قطعة مجمّعة سوا (مثلاً 12 قلم بسعر واحد)">🔀 تقسيم لقطع</button>`;
+             <button class="btn btn-sm" data-action="split-accessory" data-acc-code="${escapeAttr(a.code)}" title="لو التكلفة هذي تمثّل كذا قطعة مجمّعة سوا (مثلاً 12 قلم بسعر واحد)">🔀 تقسيم لقطع</button>
+             <button class="btn btn-sm" data-action="edit-accessory" data-acc-code="${escapeAttr(a.code)}" title="تعديل أو حذف — لتصحيح خطأ">✏️</button>`;
         return `
         <tr class="loc-${a.location}-row">
           <td class="mono">${escapeHtml(a.code)}</td>
@@ -3965,11 +4018,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     if (!a) return;
     if (a.status === 'bundled') { toast('فك الضم عن الجهاز أولاً قبل التقسيم', 'error'); return; }
 
-    const input = prompt(`${a.code} — ${a.model}\nالتكلفة الحالية: ${formatNum(a.cost)} SAR\n\nكم عدد القطع الفعلي اللي تمثّلها هذي التكلفة؟`, '2');
-    if (input === null) return;
+    const input = prompt(`${a.code} — ${a.model}\nالتكلفة الحالية: ${formatNum(a.cost)} SAR\n\n⚠️ استخدم هذا فقط لو هذي التكلفة تمثّل عدة قطع مجمّعة سوا (مثلاً "12 قلم بسعر واحد"). لو هي أصلاً قطعة وحدة، لا تدخل شي — اضغط إلغاء.\n\nكم عدد القطع الفعلي؟`, '');
+    if (input === null || input.trim() === '') return;
     const n = parseInt(input, 10);
     if (!n || n < 2) { toast('أدخل رقم صحيح أكبر من 1', 'error'); return; }
-    if (!confirm(`تقسيم ${a.code} لـ ${n} قطعة مستقلة، كل وحدة بنصيبها من التكلفة (${formatNum(round2(a.cost / n))} SAR تقريبًا)؟`)) return;
+    if (!confirm(`تقسيم ${a.code} لـ ${n} قطعة مستقلة، كل وحدة بنصيبها من التكلفة (${formatNum(round2(a.cost / n))} SAR تقريبًا)؟\n\nتأكد إنك ما تسويها على قطعة وحدة بالغلط.`)) return;
 
     // Splits a total into N shares that sum back to the exact original
     // total (plain division can lose/gain halalas across many units).
@@ -4003,6 +4056,61 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     renderAccessories();
     renderDashboard();
     toast(`تم تقسيم ${a.code} لـ ${n} قطعة: ${newCodes.join('، ')}`, 'success');
+  }
+
+  // Manual correction path for mistakes like splitting a single-piece
+  // accessory by accident: delete the extra record(s) here, then edit the
+  // remaining one's cost back to the correct total.
+  function openEditAccessoryModal(accCode) {
+    const a = state.accessories.find(x => x.code === accCode);
+    if (!a) return;
+    document.getElementById('edit-accessory-subtitle').textContent = a.code;
+    document.getElementById('editAccessoryModal').dataset.accCode = accCode;
+    document.getElementById('edit-accessory-model').value = a.model || '';
+    document.getElementById('edit-accessory-location').value = a.location || 'jeddah';
+    document.getElementById('edit-accessory-serial').value = a.serial || '';
+    document.getElementById('edit-accessory-cost').value = a.cost || 0;
+    document.getElementById('edit-accessory-note').value = a.note || '';
+    openModal('editAccessoryModal');
+  }
+
+  function saveAccessoryEdit() {
+    const accCode = document.getElementById('editAccessoryModal').dataset.accCode;
+    const a = state.accessories.find(x => x.code === accCode);
+    if (!a) return;
+    const model = document.getElementById('edit-accessory-model').value.trim();
+    const cost = parseFloat(document.getElementById('edit-accessory-cost').value);
+    if (!model) { toast('الموديل مطلوب', 'error'); return; }
+    if (isNaN(cost) || cost < 0) { toast('تكلفة غير صالحة', 'error'); return; }
+
+    const costChanged = round2(cost) !== round2(a.cost || 0);
+    a.model = model;
+    a.location = document.getElementById('edit-accessory-location').value;
+    a.serial = document.getElementById('edit-accessory-serial').value.trim();
+    a.cost = round2(cost);
+    a.note = document.getElementById('edit-accessory-note').value.trim();
+    // A manual cost edit invalidates whatever USD breakdown was stored —
+    // drop it instead of showing a stale/misleading $ figure.
+    if (costChanged) { delete a.costUSD; delete a.purchaseUSD; delete a.shippingUSD; }
+
+    persist();
+    renderAccessories();
+    renderDashboard();
+    closeModal('editAccessoryModal');
+    toast(`تم حفظ ${a.code}`, 'success');
+  }
+
+  function deleteAccessory(accCode) {
+    const a = state.accessories.find(x => x.code === accCode);
+    if (!a) return;
+    if (a.status === 'bundled') { toast('فك الضم عن الجهاز أولاً قبل الحذف', 'error'); return; }
+    if (!confirm(`حذف ${a.code} (${a.model}) نهائيًا؟ لا يمكن التراجع.`)) return;
+    state.accessories = state.accessories.filter(x => x.code !== accCode);
+    persist();
+    renderAccessories();
+    renderDashboard();
+    closeModal('editAccessoryModal');
+    toast(`تم حذف ${a.code}`, 'success');
   }
 
   // ============================================================
@@ -7447,6 +7555,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         convertAccessoryToDevice(btn.dataset.accCode);
       } else if (action === 'split-accessory') {
         splitAccessory(btn.dataset.accCode);
+      } else if (action === 'edit-accessory') {
+        openEditAccessoryModal(btn.dataset.accCode);
       }
     });
 
@@ -7547,6 +7657,10 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     document.getElementById('btn-delete-account').addEventListener('click', deleteAccount);
     document.getElementById('add-acc-install-pwd').addEventListener('input', autoGenerateCurrentPwd);
     document.getElementById('btn-confirm-join-accessory').addEventListener('click', confirmJoinAccessory);
+    document.getElementById('btn-save-accessory').addEventListener('click', saveAccessoryEdit);
+    document.getElementById('btn-delete-accessory').addEventListener('click', () => {
+      deleteAccessory(document.getElementById('editAccessoryModal').dataset.accCode);
+    });
 
     // PDF download
     document.getElementById('btn-download-pdf').addEventListener('click', downloadPdf);
