@@ -908,7 +908,7 @@ table.tbl tr.clickable:focus-visible { background: var(--primary-light); outline
 
 /* ===== Purchase batch rows (دفعة شراء) ===== */
 .batch-row {
-  grid-template-columns: 90px 1fr 100px 85px 85px 95px 32px;
+  grid-template-columns: 80px 1fr 80px 55px 75px 75px 105px 32px;
 }
 .batch-row-header {
   display: none;
@@ -916,7 +916,7 @@ table.tbl tr.clickable:focus-visible { background: var(--primary-light); outline
 @media (min-width: 701px) {
   .batch-row-header {
     display: grid;
-    grid-template-columns: 90px 1fr 100px 85px 85px 95px 32px;
+    grid-template-columns: 80px 1fr 80px 55px 75px 75px 105px 32px;
     gap: 6px;
     padding: 0 8px;
   }
@@ -2307,7 +2307,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 
       <div class="custody-form-section-title" style="margin-top: 16px;">📋 القطع</div>
       <div class="batch-row-header">
-        <span>النوع</span><span>الاسم / الموديل</span><span>Serial</span><span>السعر $</span><span>الشحن $</span><span>الإجمالي</span><span></span>
+        <span>النوع</span><span>الاسم / الموديل</span><span>Serial</span><span>الكمية</span><span>السعر $ (الكل)</span><span>الشحن $</span><span>الإجمالي</span><span></span>
       </div>
       <div class="split-rows" id="batch-rows"></div>
       <button class="btn-add-split-row" id="btn-add-batch-row">+ إضافة قطعة</button>
@@ -5563,7 +5563,22 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   let batchRows = [];
 
   function newBatchRow() {
-    return { tempId: 'b_' + Math.random().toString(36).slice(2, 7), type: 'device', name: '', serial: '', priceUSD: 0, shippingUSD: 0, shippingManual: false };
+    return { tempId: 'b_' + Math.random().toString(36).slice(2, 7), type: 'device', name: '', serial: '', quantity: 1, priceUSD: 0, shippingUSD: 0, shippingManual: false };
+  }
+
+  // A row's price/shipping are the TOTAL for the whole quantity (e.g. "12
+  // pens for $36", not "$36 each") — this splits that evenly per unit and
+  // rounds once per unit, so the preview here matches exactly what
+  // submitAddBatch() creates (avoids drift between preview and saved totals).
+  function batchRowTotals(r) {
+    const qty = Math.max(1, parseInt(r.quantity, 10) || 1);
+    const priceUSD = parseFloat(r.priceUSD) || 0;
+    const shippingUSD = parseFloat(r.shippingUSD) || 0;
+    const unitPriceUSD = round2(priceUSD / qty);
+    const unitShippingUSD = round2(shippingUSD / qty);
+    const unitCostUSD = round2(unitPriceUSD + unitShippingUSD);
+    const unitCostSAR = Math.round(unitCostUSD * USD_TO_SAR);
+    return { qty, unitPriceUSD, unitShippingUSD, unitCostUSD, unitCostSAR, rowTotalSAR: unitCostSAR * qty };
   }
 
   function openAddBatchModal() {
@@ -5617,10 +5632,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           <option value="accessory" ${r.type === 'accessory' ? 'selected' : ''}>🎁 إكسسوار</option>
         </select>
         <input type="text" data-field="name" placeholder="الموديل / الاسم" value="${escapeAttr(r.name || '')}">
-        <input type="text" data-field="serial" placeholder="اختياري" value="${escapeAttr(r.serial || '')}">
-        <input type="number" data-field="priceUSD" placeholder="0" min="0" step="any" value="${r.priceUSD || ''}">
+        <input type="text" data-field="serial" placeholder="اختياري" value="${escapeAttr(r.serial || '')}" ${(parseInt(r.quantity, 10) || 1) > 1 ? 'disabled title="ما ينحفظ Serial لو الكمية أكثر من قطعة — كل قطعة تنضاف بدون Serial"' : ''}>
+        <input type="number" data-field="quantity" min="1" step="1" value="${r.quantity || 1}" title="عدد القطع المتطابقة بهذا السطر">
+        <input type="number" data-field="priceUSD" placeholder="0" min="0" step="any" value="${r.priceUSD || ''}" title="السعر الإجمالي لكل القطع بهذا السطر">
         <input type="number" data-field="shippingUSD" placeholder="0" min="0" step="any" value="${r.shippingUSD || ''}" title="${r.shippingManual ? 'مُعدَّل يدويًا' : 'موزَّع تلقائيًا حسب السعر'}">
-        <span class="mono" style="font-size: 12px; text-align: center; white-space: nowrap;">${formatNum(round2(((parseFloat(r.priceUSD) || 0) + (parseFloat(r.shippingUSD) || 0)) * USD_TO_SAR))} SAR</span>
+        <span class="mono" style="font-size: 11px; text-align: center; white-space: nowrap;">${formatNum(batchRowTotals(r).rowTotalSAR)} SAR${(parseInt(r.quantity, 10) || 1) > 1 ? `<div style="color: var(--text-faint);">${formatNum(batchRowTotals(r).unitCostSAR)} SAR/قطعة</div>` : ''}</span>
         <button class="split-row-remove" data-action="remove" ${batchRows.length <= 1 ? 'disabled' : ''} aria-label="حذف">✕</button>
       </div>
     `).join('');
@@ -5647,6 +5663,9 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
             updateBatchTotals();
           } else if (field === 'type') {
             batchRows[idx].type = e.target.value;
+            renderBatchRows();
+          } else if (field === 'quantity') {
+            batchRows[idx].quantity = Math.max(1, parseInt(e.target.value, 10) || 1);
             renderBatchRows();
           } else {
             batchRows[idx][field] = e.target.value;
@@ -5715,39 +5734,48 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     let batchTotalSAR = 0;
 
     batchRows.forEach(r => {
+      const t = batchRowTotals(r);
       const priceUSD = round2(parseFloat(r.priceUSD) || 0);
       const shippingUSD = round2(parseFloat(r.shippingUSD) || 0);
-      const totalUSD = round2(priceUSD + shippingUSD);
-      const costSAR = Math.round(totalUSD * USD_TO_SAR);
-      batchTotalSAR += costSAR;
-      summaryLines.push(`${r.type === 'device' ? '💻' : '🎁'} ${r.name} — $${priceUSD} + شحن $${shippingUSD} = ${formatNum(costSAR)} ريال`);
+      batchTotalSAR += t.rowTotalSAR;
+      summaryLines.push(
+        `${r.type === 'device' ? '💻' : '🎁'} ${r.name}${t.qty > 1 ? ` × ${t.qty}` : ''} — $${priceUSD} + شحن $${shippingUSD} = ${formatNum(t.rowTotalSAR)} ريال${t.qty > 1 ? ` (${formatNum(t.unitCostSAR)} ريال/قطعة)` : ''}`
+      );
 
-      if (r.type === 'device') {
-        const id = nextDeviceId();
-        const code = `DEV-${id}`;
-        if (r.serial) relatedSerials.push(r.serial);
-        state.inventory.push({
-          id, code, model: r.name, specs: '', serial: r.serial || '', location, cost: costSAR,
-          minPrice: Math.round(costSAR * (1 + state.meta.profitMargins.min)),
-          targetPrice: Math.round(costSAR * (1 + state.meta.profitMargins.target)),
-          status, statusText: STATUS_LABELS[status], stage: stageMap[status] !== undefined ? stageMap[status] : 1,
-          note: '', purchaseUSD: priceUSD, shippingUSD, costUSD: totalUSD
-        });
-      } else {
-        const code = `ACC-${nextAccessoryId()}`;
-        if (r.serial) relatedSerials.push(r.serial);
-        state.accessories.push({
-          code, location, model: r.name, cost: costSAR, status: 'available', statusText: '🟢 متوفر',
-          note: '', serial: r.serial || '', purchaseUSD: priceUSD, shippingUSD, costUSD: totalUSD
-        });
+      // A Serial only identifies a single unit, so it's only kept when the
+      // row is exactly one piece — a serial can't be duplicated across a
+      // multi-quantity row (e.g. "12 pens").
+      const serial = t.qty === 1 ? (r.serial || '') : '';
+
+      for (let i = 0; i < t.qty; i++) {
+        if (r.type === 'device') {
+          const id = nextDeviceId();
+          const code = `DEV-${id}`;
+          if (serial) relatedSerials.push(serial);
+          state.inventory.push({
+            id, code, model: r.name, specs: '', serial, location, cost: t.unitCostSAR,
+            minPrice: Math.round(t.unitCostSAR * (1 + state.meta.profitMargins.min)),
+            targetPrice: Math.round(t.unitCostSAR * (1 + state.meta.profitMargins.target)),
+            status, statusText: STATUS_LABELS[status], stage: stageMap[status] !== undefined ? stageMap[status] : 1,
+            note: '', purchaseUSD: t.unitPriceUSD, shippingUSD: t.unitShippingUSD, costUSD: t.unitCostUSD
+          });
+        } else {
+          const code = `ACC-${nextAccessoryId()}`;
+          if (serial) relatedSerials.push(serial);
+          state.accessories.push({
+            code, location, model: r.name, cost: t.unitCostSAR, status: 'available', statusText: '🟢 متوفر',
+            note: '', serial, purchaseUSD: t.unitPriceUSD, shippingUSD: t.unitShippingUSD, costUSD: t.unitCostUSD
+          });
+        }
       }
     });
 
+    const totalUnits = batchRows.reduce((s, r) => s + (Math.max(1, parseInt(r.quantity, 10) || 1)), 0);
     if (!state.transactions) state.transactions = [];
     const txn = {
       id: nextTxnId(), date, category: 'purchases', direction: 'out',
       deposit: null, withdraw: batchTotalSAR, balance_after: null,
-      detail: `دفعة شراء: ${batchRows.length} قطعة`,
+      detail: `دفعة شراء: ${batchRows.length} بند (${totalUnits} قطعة)`,
       notes: summaryLines.join('\n'),
       related_serial: null,
       related_serials: relatedSerials
@@ -5761,7 +5789,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     renderWallet();
     renderDashboard();
     closeModal('addBatchModal');
-    toast(`تمت إضافة الدفعة: ${batchRows.length} قطعة بإجمالي ${formatNum(batchTotalSAR)} SAR`, 'success');
+    toast(`تمت إضافة الدفعة: ${totalUnits} قطعة بإجمالي ${formatNum(batchTotalSAR)} SAR`, 'success');
   }
 
   // ============================================================
