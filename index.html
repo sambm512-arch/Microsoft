@@ -5578,8 +5578,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   function renderBatchRows() {
     const container = document.getElementById('batch-rows');
     container.innerHTML = batchRows.map((r, idx) => `
-      <div class="split-row batch-row" data-row-idx="${idx}">
-        <select data-field="type">
+      <div class="split-row batch-row" data-row-idx="${idx}" style="border-right: 3px solid ${r.type === 'accessory' ? 'var(--success)' : 'var(--primary)'};">
+        <select data-field="type" style="font-weight: 500; color: ${r.type === 'accessory' ? 'var(--success-text)' : 'var(--primary)'};">
           <option value="device" ${r.type === 'device' ? 'selected' : ''}>💻 لابتوب</option>
           <option value="accessory" ${r.type === 'accessory' ? 'selected' : ''}>🎁 إكسسوار</option>
         </select>
@@ -5595,7 +5595,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     container.querySelectorAll('.batch-row').forEach(rowEl => {
       const idx = parseInt(rowEl.dataset.rowIdx, 10);
       rowEl.querySelectorAll('[data-field]').forEach(inp => {
-        inp.addEventListener('input', e => {
+        // <select> doesn't reliably fire 'input' in every browser (notably
+        // older Safari/iOS) — use 'change' for it so the type selection
+        // (device vs. accessory) always actually registers.
+        const evtName = inp.tagName === 'SELECT' ? 'change' : 'input';
+        inp.addEventListener(evtName, e => {
           const field = e.target.dataset.field;
           if (field === 'priceUSD') {
             batchRows[idx].priceUSD = parseFloat(e.target.value) || 0;
@@ -5608,6 +5612,9 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
             distributeShipping();
             renderBatchRows();
             updateBatchTotals();
+          } else if (field === 'type') {
+            batchRows[idx].type = e.target.value;
+            renderBatchRows();
           } else {
             batchRows[idx][field] = e.target.value;
           }
