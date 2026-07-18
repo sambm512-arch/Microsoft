@@ -6913,7 +6913,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     const yearSales = state.sales.filter(s => s.year === year);
     const maxSeq = yearSales.reduce((m, s) => Math.max(m, s.seq || 0), 0);
 
-    // Build sale record (carry over notes & photos so they survive)
+    // Build sale record (carry over notes so they survive — photos are NOT
+    // duplicated here: they live in their own photos_<code> doc, which stays
+    // reachable by the same device code whether it's in inventory or sold,
+    // so copying them into the sale record would just be dead weight that
+    // risks hitting Firestore's 1MiB main-doc limit all over again).
     const sale = {
       seq: maxSeq + 1,
       year,
@@ -6933,9 +6937,23 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       sourceSerial: d.serial || '',
       sourceLocation: d.location || 'jeddah',
       sourceNote: d.note || '',
-      notes: d.notes || [],
-      photos: d.photos || []
+      notes: d.notes || []
     };
+
+    // Auto-record the sale as a wallet deposit, linked back to this sale so
+    // undoSale() can remove it again if the sale gets reversed.
+    const isoMatch = date.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    const isoDate = isoMatch ? `${isoMatch[3]}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[1]).padStart(2, '0')}` : null;
+    if (!state.transactions) state.transactions = [];
+    const txn = {
+      id: nextTxnId(), date: isoDate, category: 'laptop_sale', direction: 'in',
+      deposit: price, withdraw: null, balance_after: null,
+      detail: `بيع ${d.code} — ${d.model}`, notes: null,
+      related_serial: d.serial || null
+    };
+    state.transactions.push(txn);
+    sale.walletTxnId = txn.id;
+    recalculateBalances();
 
     state.sales.push(sale);
     // Remove from inventory
@@ -6975,7 +6993,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     const idx = state.sales.findIndex(s => s.seq === seq && s.year === year);
     if (idx === -1) { toast('عملية البيع غير موجودة', 'error'); return; }
     const s = state.sales[idx];
-    if (!confirm(`تراجع عن بيع ${s.model} (${formatNum(s.salePrice)} SAR)؟\n\nالجهاز يرجع للمخزون، وعملية البيع تُحذف نهائيًا.`)) return;
+    const hasWalletTxn = s.walletTxnId != null && (state.transactions || []).some(t => t.id === s.walletTxnId);
+    const walletHint = hasWalletTxn
+      ? `\n\nوتُحذف حركة الإيداع المرتبطة بها من الحصالة (${formatNum(s.salePrice)} SAR).`
+      : '';
+    if (!confirm(`تراجع عن بيع ${s.model} (${formatNum(s.salePrice)} SAR)؟\n\nالجهاز يرجع للمخزون، وعملية البيع تُحذف نهائيًا.${walletHint}`)) return;
 
     let id = s.sourceDeviceId;
     if (!id || state.inventory.some(d => d.id === id)) id = nextDeviceId();
@@ -6993,11 +7015,17 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       cost: s.cost,
       minPrice: s.minPrice,
       targetPrice: s.targetPrice,
-      notes: s.notes || [],
-      photos: s.photos || []
+      notes: s.notes || []
     };
     state.inventory.push(device);
     state.sales.splice(idx, 1);
+
+    // Reverse the linked wallet deposit, if this sale had one (older sales,
+    // recorded before this was automatic, won't — nothing to reverse then).
+    if (hasWalletTxn) {
+      state.transactions = state.transactions.filter(t => t.id !== s.walletTxnId);
+      recalculateBalances();
+    }
 
     persist();
     renderInventory();
