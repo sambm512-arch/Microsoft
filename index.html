@@ -1471,7 +1471,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       <button class="btn btn-sm" id="btn-acc-bulk-clear">إلغاء التحديد</button>
     </div>
     <table class="tbl">
-      <colgroup><col style="width: 34px;"><col style="width: 90px;"><col style="width: 100px;"><col><col style="width: 90px;"><col style="width: 120px;"><col><col style="width: 110px;"></colgroup>
+      <colgroup><col style="width: 34px;"><col style="width: 90px;"><col style="width: 100px;"><col><col style="width: 90px;"><col style="width: 120px;"><col><col style="width: 170px;"></colgroup>
       <thead><tr>
         <th><input type="checkbox" id="acc-select-all" aria-label="تحديد الكل"></th>
         <th>المعرف</th>
@@ -3949,10 +3949,10 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           ? `<button class="btn btn-sm" data-action="unlink-accessory" data-acc-code="${escapeAttr(a.code)}">↩️ فك الضم</button>`
           : inMaintenance
             ? `<button class="btn btn-sm btn-primary" data-action="resolve-accessory-maintenance" data-acc-code="${escapeAttr(a.code)}">✅ تم الإصلاح</button>
-               <button class="btn btn-sm" data-action="edit-accessory" data-acc-code="${escapeAttr(a.code)}">✏️ تعديل</button>`
+               <button class="btn btn-sm btn-icon-only" data-action="edit-accessory" data-acc-code="${escapeAttr(a.code)}" title="تعديل" aria-label="تعديل">✏️</button>`
             : `<button class="btn btn-sm btn-primary" data-action="join-accessory" data-acc-code="${escapeAttr(a.code)}">🔗 ضم لجهاز</button>
-               <button class="btn btn-sm" data-action="edit-accessory" data-acc-code="${escapeAttr(a.code)}">✏️ تعديل</button>
-               <button class="btn btn-sm" data-action="mark-accessory-maintenance" data-acc-code="${escapeAttr(a.code)}" title="فيه مشكلة، يحتاج صيانة">🔧 صيانة</button>`;
+               <button class="btn btn-sm btn-icon-only" data-action="edit-accessory" data-acc-code="${escapeAttr(a.code)}" title="تعديل" aria-label="تعديل">✏️</button>
+               <button class="btn btn-sm btn-icon-only" data-action="mark-accessory-maintenance" data-acc-code="${escapeAttr(a.code)}" title="فيه مشكلة، يحتاج صيانة" aria-label="يحتاج صيانة">🔧</button>`;
         const checked = selectedAccessoryCodes.has(a.code) ? 'checked' : '';
         return `
         <tr class="loc-${a.location}-row${inMaintenance ? ' acc-maintenance-row' : ''}">
