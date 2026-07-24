@@ -1047,6 +1047,9 @@ tr.office-incomplete td:first-child { border-right: 3px solid var(--warn); }
 tr.office-incomplete:hover { background: rgba(250,238,218,0.6); }
 tr.office-available { background: var(--surface); }
 tr.office-available:hover { background: var(--soft-bg); }
+tr.acc-maintenance-row { background: linear-gradient(90deg, rgba(253,226,226,0.45) 0%, rgba(253,226,226,0.1) 100%); }
+tr.acc-maintenance-row td:first-child { border-right: 3px solid var(--danger-text); }
+tr.acc-maintenance-row:hover { background: rgba(253,226,226,0.65); }
 .secret-pwd { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; color: var(--text-faint); cursor: pointer; user-select: none; padding: 2px 6px; border-radius: 4px; background: var(--soft-bg); }
 .secret-pwd:hover { background: var(--primary-light); color: var(--primary); }
 .secret-pwd.revealed { color: var(--text); background: var(--warn-bg); letter-spacing: 0; }
@@ -3935,17 +3938,24 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     } else {
       tbody.innerHTML = state.accessories.map(a => {
         const bundled = a.status === 'bundled';
+        const inMaintenance = a.status === 'maintenance';
         const recovered = isAccessoryRecovered(a);
         const statusHtml = bundled
           ? `<span class="pill ${recovered ? 'pill-green' : 'pill-orange'}">${recovered ? '✅ ضُمّت وانباعت' : '🔗 ضُمّت لـ ' + escapeHtml(a.bundledToDeviceCode || '')}</span>`
-          : `<span class="pill pill-green">${escapeHtml(a.statusText)}</span>`;
+          : inMaintenance
+            ? `<span class="pill pill-maintenance">🔧 يحتاج صيانة</span>`
+            : `<span class="pill pill-green">${escapeHtml(a.statusText)}</span>`;
         const actionHtml = bundled
           ? `<button class="btn btn-sm" data-action="unlink-accessory" data-acc-code="${escapeAttr(a.code)}">↩️ فك الضم</button>`
-          : `<button class="btn btn-sm btn-primary" data-action="join-accessory" data-acc-code="${escapeAttr(a.code)}">🔗 ضم لجهاز</button>
-             <button class="btn btn-sm" data-action="edit-accessory" data-acc-code="${escapeAttr(a.code)}">✏️ تعديل</button>`;
+          : inMaintenance
+            ? `<button class="btn btn-sm btn-primary" data-action="resolve-accessory-maintenance" data-acc-code="${escapeAttr(a.code)}">✅ تم الإصلاح</button>
+               <button class="btn btn-sm" data-action="edit-accessory" data-acc-code="${escapeAttr(a.code)}">✏️ تعديل</button>`
+            : `<button class="btn btn-sm btn-primary" data-action="join-accessory" data-acc-code="${escapeAttr(a.code)}">🔗 ضم لجهاز</button>
+               <button class="btn btn-sm" data-action="edit-accessory" data-acc-code="${escapeAttr(a.code)}">✏️ تعديل</button>
+               <button class="btn btn-sm" data-action="mark-accessory-maintenance" data-acc-code="${escapeAttr(a.code)}" title="فيه مشكلة، يحتاج صيانة">🔧 صيانة</button>`;
         const checked = selectedAccessoryCodes.has(a.code) ? 'checked' : '';
         return `
-        <tr class="loc-${a.location}-row">
+        <tr class="loc-${a.location}-row${inMaintenance ? ' acc-maintenance-row' : ''}">
           <td><input type="checkbox" class="acc-select-checkbox" data-acc-code="${escapeAttr(a.code)}" ${checked}></td>
           <td class="mono">${escapeHtml(a.code)}</td>
           <td><span class="loc-pill loc-${a.location}">${LOCATION_LABELS[a.location] || a.location}</span></td>
@@ -4052,6 +4062,31 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     renderAccessories();
     renderInventory();
     toast('تم فك الضم', 'success');
+  }
+
+  // Flags an accessory found faulty during receiving/inspection so it
+  // can't be joined to a device by mistake until it's fixed.
+  function markAccessoryMaintenance(accCode) {
+    const a = state.accessories.find(x => x.code === accCode);
+    if (!a) return;
+    const issue = prompt(`${a.code} — ${a.model}\n\nوش المشكلة؟`, a.note || '');
+    if (issue === null) return;
+    a.status = 'maintenance';
+    a.statusText = '🔧 يحتاج صيانة';
+    if (issue.trim()) a.note = issue.trim();
+    persist();
+    renderAccessories();
+    toast(`تم تعليم ${a.code} كـ"يحتاج صيانة"`, 'success');
+  }
+
+  function resolveAccessoryMaintenance(accCode) {
+    const a = state.accessories.find(x => x.code === accCode);
+    if (!a) return;
+    a.status = 'available';
+    a.statusText = '🟢 متوفر';
+    persist();
+    renderAccessories();
+    toast(`تم إنهاء صيانة ${a.code} — رجعت متوفرة`, 'success');
   }
 
   // Reclassify a wrongly-typed accessory as a device (and back, via
@@ -7876,6 +7911,10 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         unlinkAccessory(btn.dataset.accCode);
       } else if (action === 'edit-accessory') {
         openEditAccessoryModal(btn.dataset.accCode);
+      } else if (action === 'mark-accessory-maintenance') {
+        markAccessoryMaintenance(btn.dataset.accCode);
+      } else if (action === 'resolve-accessory-maintenance') {
+        resolveAccessoryMaintenance(btn.dataset.accCode);
       }
     });
 
