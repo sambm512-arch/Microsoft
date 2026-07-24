@@ -2155,6 +2155,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       </div>
 
       <div class="modal-section">
+        <h3 class="modal-section-title">🔑 حساب Office</h3>
+        <div id="dev-office-section"></div>
+      </div>
+
+      <div class="modal-section">
         <h3 class="modal-section-title">📊 تتبع المراحل</h3>
         <div id="dev-stages"></div>
       </div>
@@ -2426,14 +2431,21 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           <input type="text" id="edit-acc-current-pwd" placeholder="إذا تركتها فارغة وفيه كلمة تثبيت، تُولّد تلقائياً">
           <div style="font-size: 11px; color: var(--text-faint); margin-top: 2px;">القاعدة الافتراضية: <strong>Microsoft</strong> + كلمة التثبيت. تقدر تكتبها يدوياً.</div>
         </div>
+        <div class="form-row">
+          <label for="edit-acc-device">الجهاز</label>
+          <select id="edit-acc-device">
+            <option value="">— بدون جهاز —</option>
+          </select>
+          <div style="font-size: 11px; color: var(--text-faint); margin-top: 2px;">الجهاز والـ Serial والحالة يترابطون تلقائيًا مع المخزون — ما تحتاج تعدّلهم يدويًا بعد الربط.</div>
+        </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
           <div class="form-row">
-            <label for="edit-acc-device">الجهاز</label>
-            <input type="text" id="edit-acc-device" placeholder="مثال: DEV-59">
+            <label for="edit-acc-serial">Serial</label>
+            <input type="text" id="edit-acc-serial" placeholder="يُملأ تلقائيًا من الجهاز المرتبط" style="font-family: ui-monospace, monospace;" readonly>
           </div>
           <div class="form-row">
-            <label for="edit-acc-serial">Serial</label>
-            <input type="text" id="edit-acc-serial" placeholder="رقم تسلسلي للجهاز" style="font-family: ui-monospace, monospace;">
+            <label>الحالة</label>
+            <div id="edit-acc-status-display" class="pill pill-green" style="display: inline-block; width: fit-content;">🟢 متاح</div>
           </div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
@@ -2452,13 +2464,6 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
               <option value="archive">📦 الأرشيف</option>
             </select>
           </div>
-        </div>
-        <div class="form-row">
-          <label for="edit-acc-status">الحالة</label>
-          <select id="edit-acc-status">
-            <option value="🟢 متاح">🟢 متاح</option>
-            <option value="🔵 مثبت">🔵 مثبت</option>
-          </select>
         </div>
         <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: space-between; flex-wrap: wrap;">
           <button type="button" class="btn btn-danger" id="btn-delete-account">🗑️ حذف الحساب</button>
@@ -6575,6 +6580,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     // round trip, then refresh once the dedicated photos doc loads.
     renderDeviceNotes(d);
     renderDevicePhotos(d);
+    renderDeviceOfficeSection(d);
 
     openModal('deviceModal');
 
@@ -6649,9 +6655,13 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     d.specs = specs;
     d.serial = serial;
     d.location = location;
+    // Keep a linked Office account's serial in sync with the device it's installed on.
+    const linkedAccount = state.accounts.find(a => a.linkedDeviceId === d.id);
+    if (linkedAccount) linkedAccount.serial = serial;
     persist();
     renderInventory();
     renderDashboard();
+    renderOffice();
     // Refresh view
     document.getElementById('dev-modal-title').textContent = `${d.code} — ${d.model}`;
     document.getElementById('dev-modal-subtitle').textContent = `${d.specs} · Serial: ${d.serial || '—'}`;
@@ -6709,9 +6719,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     if (!confirm(`هل أنت متأكد من حذف ${d.code} (${d.model})؟ لا يمكن التراجع.`)) return;
 
     state.inventory = state.inventory.filter(x => x.id !== id);
+    unlinkAccountsForDevice(id);
     persist();
     renderInventory();
     renderDashboard();
+    renderOffice();
     closeModal('deviceModal');
     // Best-effort cleanup of the device's separate photos doc — not
     // critical if it fails, just an orphaned doc left behind.
@@ -6729,6 +6741,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     if (!confirm(`تحويل ${d.code} (${d.model}) من "جهاز" إلى "إكسسوار"؟\n\nراح ينحذف من المخزون وينضاف كإكسسوار بنفس التكلفة (${formatNum(d.cost)} SAR).`)) return;
 
     state.inventory = state.inventory.filter(x => x.id !== id);
+    unlinkAccountsForDevice(id);
     const code = `ACC-${nextAccessoryId()}`;
     const newAcc = {
       code, location: d.location, model: d.model + (d.specs ? ` (${d.specs})` : ''), cost: d.cost,
@@ -6746,6 +6759,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     renderInventory();
     renderAccessories();
     renderDashboard();
+    renderOffice();
     closeModal('deviceModal');
     toast(`تم تحويل ${d.code} إلى ${code} (إكسسوار)`, 'success');
   }
@@ -6958,6 +6972,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     state.sales.push(sale);
     // Remove from inventory
     state.inventory = state.inventory.filter(x => x.id !== d.id);
+    unlinkAccountsForDevice(d.id);
 
     persist();
 
@@ -6966,6 +6981,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     renderDashboard();
     renderSales();
     renderFiscal();
+    renderOffice();
 
     closeModal('sellDeviceModal');
     closeModal('deviceModal');
@@ -7427,7 +7443,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     const num = String(Math.max(0, ...currentNums) + 1);
     state.accounts.push({
       id, num, era: 'current', incomplete: false,
-      statusText: '🟢 متاح', device: '', serial: '',
+      statusText: '🟢 متاح', device: '', serial: '', linkedDeviceId: null,
       email, currentPwd: `Microsoft${installPwd}`, installPwd,
       cost, purchaseDate: todayDDMMYYYY()
     });
@@ -7435,6 +7451,106 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     renderOffice();
     closeModal('addAccountModal');
     toast(`تمت إضافة الحساب ${email}`, 'success');
+  }
+
+  // A device leaving inventory (sold, deleted, converted) must drop any
+  // Office account linked to it back to "available" — otherwise the
+  // account keeps pointing at a device that no longer exists.
+  function unlinkAccountsForDevice(deviceId) {
+    state.accounts.forEach(a => {
+      if (a.linkedDeviceId === deviceId) {
+        a.linkedDeviceId = null;
+        a.device = '';
+        a.serial = '';
+        a.statusText = '🟢 متاح';
+        a.incomplete = false;
+      }
+    });
+  }
+
+  // Device-side counterpart to the account-side device picker: lets you
+  // install an available Office account straight from the device modal
+  // (the natural direction when you're standing in front of a device in
+  // the warehouse), instead of hunting for it in the Office accounts tab.
+  function renderDeviceOfficeSection(d) {
+    const container = document.getElementById('dev-office-section');
+    const linked = state.accounts.find(a => a.linkedDeviceId === d.id);
+    if (linked) {
+      container.innerHTML = `
+        <div class="detail-grid">
+          <div class="detail-item" style="background: var(--primary-light);">
+            <div class="detail-label" style="color: var(--primary);">الحساب المثبّت</div>
+            <div class="detail-value mono" style="color: var(--primary);">${escapeHtml(linked.email)}</div>
+          </div>
+        </div>
+        <div style="margin-top: 8px;">
+          <button class="btn btn-sm" id="btn-unlink-office" type="button">🔓 فك الارتباط (يرجع الحساب متاح)</button>
+        </div>
+      `;
+      document.getElementById('btn-unlink-office').addEventListener('click', () => unlinkOfficeFromDevice(d.id));
+    } else {
+      const available = state.accounts.filter(a => a.era === 'current' && (a.statusText || '').includes('متاح'));
+      if (available.length === 0) {
+        container.innerHTML = `<div style="font-size: 12px; color: var(--text-faint);">ما فيه حسابات Office متاحة حاليًا — أضف حساب جديد من تبويب "حسابات Office".</div>`;
+        return;
+      }
+      container.innerHTML = `
+        <div class="form-row">
+          <label for="dev-office-account-select">اختر حساب متاح</label>
+          <select id="dev-office-account-select">
+            ${available.map(a => `<option value="${a.id}">${escapeHtml(a.email)}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-install-office" type="button">🔗 تثبيت على هذا الجهاز</button>
+      `;
+      document.getElementById('btn-install-office').addEventListener('click', () => installOfficeOnDevice(d.id));
+    }
+  }
+
+  function installOfficeOnDevice(deviceId) {
+    const d = state.inventory.find(x => x.id === deviceId);
+    const select = document.getElementById('dev-office-account-select');
+    const accountId = parseInt(select.value, 10);
+    const a = state.accounts.find(x => x.id === accountId);
+    if (!d || !a) { toast('تعذّر التثبيت', 'error'); return; }
+    a.linkedDeviceId = d.id;
+    a.device = d.code;
+    a.serial = d.serial || '';
+    a.statusText = '🔵 مثبت';
+    a.incomplete = false;
+    persist();
+    renderOffice();
+    renderDeviceOfficeSection(d);
+    toast(`تم تثبيت ${a.email} على ${d.code}`, 'success');
+  }
+
+  function unlinkOfficeFromDevice(deviceId) {
+    const d = state.inventory.find(x => x.id === deviceId);
+    if (!d) return;
+    if (!confirm(`فك ارتباط حساب Office عن ${d.code}؟ الحساب برجع "متاح".`)) return;
+    unlinkAccountsForDevice(deviceId);
+    persist();
+    renderOffice();
+    renderDeviceOfficeSection(d);
+    toast('تم فك الارتباط', 'success');
+  }
+
+  // Reflects the selected device (or lack of one) into the read-only
+  // serial/status fields — device link is the single source of truth,
+  // so these never need separate manual entry.
+  function syncAccountDeviceFields() {
+    const select = document.getElementById('edit-acc-device');
+    const deviceId = parseInt(select.value, 10);
+    const d = state.inventory.find(x => x.id === deviceId);
+    const statusDisplay = document.getElementById('edit-acc-status-display');
+    document.getElementById('edit-acc-serial').value = d ? (d.serial || '') : '';
+    if (d) {
+      statusDisplay.textContent = '🔵 مثبت';
+      statusDisplay.className = 'pill pill-blue';
+    } else {
+      statusDisplay.textContent = '🟢 متاح';
+      statusDisplay.className = 'pill pill-green';
+    }
   }
 
   // v25.2: Edit existing account
@@ -7446,14 +7562,23 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     document.getElementById('edit-acc-email').value = a.email || '';
     document.getElementById('edit-acc-install-pwd').value = a.installPwd || '';
     document.getElementById('edit-acc-current-pwd').value = a.currentPwd || '';
-    document.getElementById('edit-acc-device').value = a.device || '';
-    document.getElementById('edit-acc-serial').value = a.serial || '';
     document.getElementById('edit-acc-cost').value = a.cost || '';
     document.getElementById('edit-acc-date').value = a.purchaseDate || '';
     document.getElementById('edit-acc-era').value = a.era || 'current';
-    // Match status by trimmed text since values may have variations
-    const statusVal = (a.statusText || '').includes('متاح') ? '🟢 متاح' : '🔵 مثبت';
-    document.getElementById('edit-acc-status').value = statusVal;
+
+    // Migrate legacy free-text device values (e.g. "DEV-59") to a real
+    // inventory link the first time this account is opened for edit.
+    if (!a.linkedDeviceId && a.device) {
+      const match = state.inventory.find(x => x.code === a.device);
+      if (match) a.linkedDeviceId = match.id;
+    }
+    const devices = state.inventory.slice().sort((x, y) => (x.code || '').localeCompare(y.code || ''));
+    const select = document.getElementById('edit-acc-device');
+    select.innerHTML = '<option value="">— بدون جهاز —</option>' +
+      devices.map(d => `<option value="${d.id}">${escapeHtml(d.code)} — ${escapeHtml(d.model)}</option>`).join('');
+    select.value = (a.linkedDeviceId && devices.some(d => d.id === a.linkedDeviceId)) ? String(a.linkedDeviceId) : '';
+    syncAccountDeviceFields();
+
     openModal('editAccountModal');
   }
 
@@ -7473,25 +7598,24 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     let currentPwd = document.getElementById('edit-acc-current-pwd').value.trim();
     // Auto-fill currentPwd from installPwd if empty
     if (!currentPwd && installPwd) currentPwd = `Microsoft${installPwd}`;
-    const device = document.getElementById('edit-acc-device').value.trim();
-    const serial = document.getElementById('edit-acc-serial').value.trim();
+    const deviceId = parseInt(document.getElementById('edit-acc-device').value, 10);
+    const d = state.inventory.find(x => x.id === deviceId);
     const costRaw = document.getElementById('edit-acc-cost').value;
     const cost = costRaw === '' ? null : parseFloat(costRaw);
     const purchaseDate = document.getElementById('edit-acc-date').value.trim();
     const era = document.getElementById('edit-acc-era').value;
-    const statusText = document.getElementById('edit-acc-status').value;
 
     a.email = email;
     a.installPwd = installPwd;
     a.currentPwd = currentPwd;
-    a.device = device;
-    a.serial = serial;
+    a.linkedDeviceId = d ? d.id : null;
+    a.device = d ? d.code : '';
+    a.serial = d ? (d.serial || '') : '';
     a.cost = cost;
     a.purchaseDate = purchaseDate;
     a.era = era;
-    a.statusText = statusText;
-    // incomplete flag depends on having both device & serial when status is "مثبت"
-    a.incomplete = statusText.includes('مثبت') && (!device || !serial);
+    a.statusText = d ? '🔵 مثبت' : '🟢 متاح';
+    a.incomplete = false;
 
     persist();
     renderOffice();
@@ -7735,20 +7859,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       if (action === 'export-pdf') {
         openPdfModal(parseInt(btn.dataset.accountId));
       } else if (action === 'complete-account') {
-        const id = parseInt(btn.dataset.accountId);
-        const a = state.accounts.find(x => x.id === id);
-        if (a) {
-          const dev = prompt('الجهاز:', a.device || '');
-          if (dev === null) return;
-          const ser = prompt('Serial:', a.serial || '');
-          if (ser === null) return;
-          a.device = dev.trim();
-          a.serial = ser.trim();
-          a.incomplete = !a.device || !a.serial;
-          persist();
-          renderOffice();
-          toast('تم تحديث الحساب', 'success');
-        }
+        openEditAccount(parseInt(btn.dataset.accountId));
       } else if (action === 'delete-note') {
         deleteDeviceNote(btn.dataset.noteId);
       } else if (action === 'delete-photo') {
@@ -7863,6 +7974,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     // v25.2: Account edit modal
     document.getElementById('btn-save-account').addEventListener('click', saveAccount);
     document.getElementById('btn-delete-account').addEventListener('click', deleteAccount);
+    document.getElementById('edit-acc-device').addEventListener('change', syncAccountDeviceFields);
     document.getElementById('add-acc-install-pwd').addEventListener('input', autoGenerateCurrentPwd);
     document.getElementById('btn-confirm-join-accessory').addEventListener('click', confirmJoinAccessory);
     document.getElementById('acc-select-all').addEventListener('change', e => {
