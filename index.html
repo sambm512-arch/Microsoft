@@ -2095,6 +2095,10 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           <input type="date" id="stmt-to" aria-label="إلى تاريخ" style="flex: 1;">
         </div>
       </div>
+      <div class="form-row" id="stmt-lastn-row" style="display: none;">
+        <label for="stmt-lastn">عدد الحركات</label>
+        <input type="number" id="stmt-lastn" min="1" step="1" value="20">
+      </div>
       <div class="form-row">
         <label for="stmt-cat">الفئة</label>
         <select id="stmt-cat">
@@ -4538,12 +4542,15 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     const sortedMonths = [...months].sort().reverse();
     periodSel.innerHTML = [
       `<option value="all">كل الفترة</option>`,
+      `<option value="lastN">آخر عدد من الحركات...</option>`,
       ...sortedMonths.map(ym => `<option value="${ym}">${monthLabel(ym)}</option>`),
       `<option value="custom">نطاق مخصص...</option>`
     ].join('');
     document.getElementById('stmt-custom-range-row').style.display = 'none';
+    document.getElementById('stmt-lastn-row').style.display = 'none';
     document.getElementById('stmt-from').value = '';
     document.getElementById('stmt-to').value = '';
+    document.getElementById('stmt-lastn').value = '20';
     document.getElementById('stmt-cat').value = '';
     document.getElementById('stmt-dir').value = '';
     document.getElementById('stmt-notes').checked = false;
@@ -4558,13 +4565,16 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     const notesOnly = document.getElementById('stmt-notes').checked;
     const custodyOnly = document.getElementById('stmt-custody').checked;
 
-    let fromDate = '', toDate = '', periodLabel = 'كل الفترة';
+    let fromDate = '', toDate = '', periodLabel = 'كل الفترة', lastN = null;
     if (period === 'custom') {
       fromDate = document.getElementById('stmt-from').value || '';
       toDate = document.getElementById('stmt-to').value || '';
       if (fromDate && toDate) periodLabel = `${formatTxnDate(fromDate)} — ${formatTxnDate(toDate)}`;
       else if (fromDate) periodLabel = `من ${formatTxnDate(fromDate)}`;
       else if (toDate) periodLabel = `حتى ${formatTxnDate(toDate)}`;
+    } else if (period === 'lastN') {
+      lastN = parseInt(document.getElementById('stmt-lastn').value, 10) || 20;
+      periodLabel = `آخر ${lastN} حركة`;
     } else if (period !== 'all') {
       fromDate = `${period}-01`;
       const [y, m] = period.split('-').map(Number);
@@ -4581,11 +4591,21 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     if (notesOnly) items = items.filter(t => t.notes && t.notes.trim());
     const MOHAMED_CATS = ['rent', 'expenses', 'loan', 'custody_repay', 'mohamed_advance'];
     if (custodyOnly) items = items.filter(t => getOwningCustody(t.id) || MOHAMED_CATS.includes(t.category));
+    // "Last N" bypasses dates entirely (some entries have none) — pick the
+    // most recently-entered N by id, THEN sort those for display below.
+    if (lastN !== null) {
+      items = items.sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, lastN);
+    }
     // Sort by the actual transaction DATE (not entry id) so the statement reads
     // top-to-bottom in real chronological order — entries aren't always typed
-    // into the ledger in date order, so id order can jump around.
+    // into the ledger in date order, so id order can jump around. Entries with
+    // no date at all are pushed to the end (instead of sorting first, which
+    // wrongly made them look like the oldest transaction on record).
     items.sort((a, b) => {
       const da = a.date || '', db = b.date || '';
+      if (!da && !db) return compareTxnsChronological(a, b);
+      if (!da) return 1;
+      if (!db) return -1;
       if (da !== db) return da < db ? -1 : 1;
       return compareTxnsChronological(a, b);
     });
@@ -4600,9 +4620,13 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     // filter does a running "balance" column mean the real wallet balance —
     // otherwise it's just a subtotal of the shown rows.
     const isFullPeriodView = !cat && !dir && !notesOnly && !custodyOnly;
-    const openingBalance = (isFullPeriodView && fromDate)
-      ? (state.transactions || []).filter(t => (t.date || '') < fromDate).reduce((s, t) => s + (t.deposit || 0) - (t.withdraw || 0), 0)
-      : 0;
+    let openingBalance = 0;
+    if (isFullPeriodView && lastN !== null && items.length) {
+      const minId = Math.min(...items.map(t => t.id || 0));
+      openingBalance = (state.transactions || []).filter(t => (t.id || 0) < minId).reduce((s, t) => s + (t.deposit || 0) - (t.withdraw || 0), 0);
+    } else if (isFullPeriodView && fromDate) {
+      openingBalance = (state.transactions || []).filter(t => (t.date || '') < fromDate).reduce((s, t) => s + (t.deposit || 0) - (t.withdraw || 0), 0);
+    }
     let runningBalance = openingBalance;
     const rowsData = items.map(t => {
       runningBalance = round2(runningBalance + (t.deposit || 0) - (t.withdraw || 0));
@@ -4610,6 +4634,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     });
     const closingBalance = runningBalance;
     const balanceColLabel = isFullPeriodView ? 'الرصيد' : 'الإجمالي التراكمي*';
+    const showOpeningClosing = isFullPeriodView && (fromDate || (lastN !== null && items.length > 0));
 
     const totalIn = items.reduce((s, t) => s + (t.deposit || 0), 0);
     const totalOut = items.reduce((s, t) => s + (t.withdraw || 0), 0);
@@ -4680,7 +4705,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       <div class="label">إجمالي السحوبات</div>
       <div class="value" style="color: #c0392b;">${formatNum(totalOut)}</div>
     </div>
-    ${isFullPeriodView && fromDate ? `
+    ${showOpeningClosing ? `
     <div class="summary-card">
       <div class="label">الرصيد الافتتاحي</div>
       <div class="value" style="color: #555;">${formatNum(openingBalance)}</div>
@@ -8377,6 +8402,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     document.getElementById('btn-generate-statement').addEventListener('click', generateWalletStatementPDF);
     document.getElementById('stmt-period').addEventListener('change', e => {
       document.getElementById('stmt-custom-range-row').style.display = e.target.value === 'custom' ? '' : 'none';
+      document.getElementById('stmt-lastn-row').style.display = e.target.value === 'lastN' ? '' : 'none';
     });
     // Click delegation for chips inside the wallet table → open relevant modal
     document.getElementById('wallet-tbody').addEventListener('click', e => {
