@@ -4581,7 +4581,14 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     if (notesOnly) items = items.filter(t => t.notes && t.notes.trim());
     const MOHAMED_CATS = ['rent', 'expenses', 'loan', 'custody_repay', 'mohamed_advance'];
     if (custodyOnly) items = items.filter(t => getOwningCustody(t.id) || MOHAMED_CATS.includes(t.category));
-    items.sort(compareTxnsChronological);
+    // Sort by the actual transaction DATE (not entry id) so the statement reads
+    // top-to-bottom in real chronological order — entries aren't always typed
+    // into the ledger in date order, so id order can jump around.
+    items.sort((a, b) => {
+      const da = a.date || '', db = b.date || '';
+      if (da !== db) return da < db ? -1 : 1;
+      return compareTxnsChronological(a, b);
+    });
 
     const filterChips = [];
     if (cat) filterChips.push(`الفئة: ${TXN_CAT_LABELS[cat] || cat}`);
@@ -4589,14 +4596,29 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     if (notesOnly) filterChips.push('فيها ملاحظة فقط');
     if (custodyOnly) filterChips.push('حركات العهد فقط');
 
+    // Only when the view isn't reduced by a category/direction/notes/custody
+    // filter does a running "balance" column mean the real wallet balance —
+    // otherwise it's just a subtotal of the shown rows.
+    const isFullPeriodView = !cat && !dir && !notesOnly && !custodyOnly;
+    const openingBalance = (isFullPeriodView && fromDate)
+      ? (state.transactions || []).filter(t => (t.date || '') < fromDate).reduce((s, t) => s + (t.deposit || 0) - (t.withdraw || 0), 0)
+      : 0;
+    let runningBalance = openingBalance;
+    const rowsData = items.map(t => {
+      runningBalance = round2(runningBalance + (t.deposit || 0) - (t.withdraw || 0));
+      return { t, balance: runningBalance };
+    });
+    const closingBalance = runningBalance;
+    const balanceColLabel = isFullPeriodView ? 'الرصيد' : 'الإجمالي التراكمي*';
+
     const totalIn = items.reduce((s, t) => s + (t.deposit || 0), 0);
     const totalOut = items.reduce((s, t) => s + (t.withdraw || 0), 0);
     const currentBalance = (state.transactions || []).reduce((s, t) => s + (t.deposit || 0) - (t.withdraw || 0), 0);
     const today = todayDDMMYYYY();
 
-    const rows = items.length === 0
+    const rows = rowsData.length === 0
       ? `<tr><td colspan="7" class="muted" style="text-align:center; padding: 16px;">لا توجد حركات مطابقة</td></tr>`
-      : items.map(t => `
+      : rowsData.map(({ t, balance }) => `
         <tr>
           <td class="small">${t.id}</td>
           <td class="small">${formatTxnDate(t.date)}</td>
@@ -4604,7 +4626,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           <td>${escapeHtml((t.detail || '').split('\n')[0])}</td>
           <td class="amount" style="color: #1d9e75;">${t.deposit ? '+' + formatNum(t.deposit) : '—'}</td>
           <td class="amount" style="color: #c0392b;">${t.withdraw ? '-' + formatNum(t.withdraw) : '—'}</td>
-          <td class="amount">${t.balance_after !== null && t.balance_after !== undefined ? formatNum(t.balance_after) : '—'}</td>
+          <td class="amount">${formatNum(balance)}</td>
         </tr>
       `).join('');
 
@@ -4620,7 +4642,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   .meta { font-size: 12px; color: #666; margin-bottom: 12px; }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
   .chip { font-size: 11px; background: #f0f3f7; border: 0.5px solid #ddd; border-radius: 20px; padding: 3px 10px; color: #444; }
-  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0; }
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 20px 0; }
   .summary-card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; text-align: center; }
   .summary-card .label { font-size: 11px; color: #666; }
   .summary-card .value { font-size: 16px; font-weight: 700; margin-top: 4px; font-family: monospace; }
@@ -4658,16 +4680,28 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       <div class="label">إجمالي السحوبات</div>
       <div class="value" style="color: #c0392b;">${formatNum(totalOut)}</div>
     </div>
+    ${isFullPeriodView && fromDate ? `
+    <div class="summary-card">
+      <div class="label">الرصيد الافتتاحي</div>
+      <div class="value" style="color: #555;">${formatNum(openingBalance)}</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">الرصيد الختامي</div>
+      <div class="value" style="color: #185fa5;">${formatNum(closingBalance)}</div>
+    </div>
+    ` : `
     <div class="summary-card">
       <div class="label">رصيد الحصّالة الحالي</div>
       <div class="value" style="color: #185fa5;">${formatNum(currentBalance)}</div>
     </div>
+    `}
   </div>
 
   <table>
-    <thead><tr><th>#</th><th>التاريخ</th><th>الفئة</th><th>التفاصيل</th><th>إيداع</th><th>سحب</th><th>الرصيد</th></tr></thead>
+    <thead><tr><th>#</th><th>التاريخ</th><th>الفئة</th><th>التفاصيل</th><th>إيداع</th><th>سحب</th><th>${balanceColLabel}</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
+  ${!isFullPeriodView ? `<div class="small" style="margin-bottom: 16px;">* إجمالي تراكمي للحركات المعروضة فقط بعد تطبيق الفلاتر، وليس رصيد الحصّالة الفعلي.</div>` : ''}
 
   <div class="footer">
     تم إنشاء هذا الكشف بواسطة Surface Hub · ${today}
