@@ -453,7 +453,7 @@ table.tbl tr.clickable:focus-visible { background: var(--primary-light); outline
 .note-modal-close:hover { color: var(--text); }
 
 /* Filter checkbox for custody */
-.wallet-toolbar label.filter-check {
+label.filter-check {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -465,8 +465,8 @@ table.tbl tr.clickable:focus-visible { background: var(--primary-light); outline
   border: 0.5px solid var(--border);
   background: var(--surface);
 }
-.wallet-toolbar label.filter-check input { margin: 0; }
-.wallet-toolbar label.filter-check:hover { background: var(--soft-bg); }
+label.filter-check input { margin: 0; }
+label.filter-check:hover { background: var(--soft-bg); }
 
 /* ===== Custody Management (v21.8) ===== */
 .btn-manage-custody {
@@ -1731,6 +1731,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       <button class="btn" id="btn-transfer-tamara" style="background: var(--success); color: white; border-color: var(--success);">🌱 تحويل لتمرة المالية</button>
       <button class="btn btn-manage-custody" id="btn-manage-custody">🤝 إدارة العهد</button>
       <button class="btn" id="btn-new-settlement" style="background: var(--primary); color: white; border-color: var(--primary);">⚖️ مخالصة جديدة</button>
+      <button class="btn" id="btn-export-statement" style="background: var(--accent-purple); color: white; border-color: var(--accent-purple);">📄 كشف حساب</button>
     </div>
 
     <!-- Toolbar -->
@@ -2067,6 +2068,83 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
           <button type="button" class="btn btn-primary" id="btn-submit-txn">حفظ الحركة</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: EXPORT WALLET STATEMENT (كشف حساب) ===== -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="statementModal" role="dialog" aria-modal="true" aria-labelledby="statement-title">
+  <div class="modal" style="max-width: 600px;">
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title" id="statement-title">📄 تصدير كشف حساب</h2>
+        <div class="modal-subtitle">اختر الفترة والفلاتر، ثم صدّر التقرير كـ PDF</div>
+      </div>
+      <button class="close-btn" data-close-modal="statementModal" aria-label="إغلاق">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label for="stmt-period">الفترة</label>
+        <select id="stmt-period"></select>
+      </div>
+      <div class="form-row" id="stmt-custom-range-row" style="display: none;">
+        <label>نطاق مخصص</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="date" id="stmt-from" aria-label="من تاريخ" style="flex: 1;">
+          <input type="date" id="stmt-to" aria-label="إلى تاريخ" style="flex: 1;">
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="stmt-cat">الفئة</label>
+        <select id="stmt-cat">
+          <option value="">كل الفئات</option>
+          <optgroup label="إيداعات">
+            <option value="laptop_sale">بيع لابتوب</option>
+            <option value="pen_sale">بيع أقلام</option>
+            <option value="charger_sale">بيع شواحن</option>
+            <option value="round_sale">مبيعات جولة كاملة</option>
+            <option value="opening">رأس مال افتتاحي</option>
+            <option value="other_income">دخل آخر</option>
+          </optgroup>
+          <optgroup label="سحوبات">
+            <option value="tamara_invest">تمرة المالية</option>
+            <option value="abusaif_invest">استثمار أبو سيف</option>
+            <option value="deera_invest">استثمار الديرة</option>
+            <option value="purchases">مشتريات</option>
+            <option value="rent">إيجار</option>
+            <option value="medical">علاج</option>
+            <option value="course">دورات</option>
+            <option value="mohamed_advance">عُهدة لمحمد</option>
+            <option value="personal">شخصية</option>
+            <option value="loan">قرض</option>
+            <option value="other_expense">مصاريف أخرى</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="stmt-dir">الاتجاه</label>
+        <select id="stmt-dir">
+          <option value="">إيداع وسحب</option>
+          <option value="in">إيداع فقط</option>
+          <option value="out">سحب فقط</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>فلاتر إضافية</label>
+        <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+          <label class="filter-check" title="عرض الحركات التي تحتوي على ملاحظات فقط">
+            <input type="checkbox" id="stmt-notes"> 📝 فيها ملاحظة
+          </label>
+          <label class="filter-check" title="عرض حركات العهد فقط">
+            <input type="checkbox" id="stmt-custody"> 🤝 عهد
+          </label>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end;">
+        <button type="button" class="btn" data-close-modal="statementModal">إلغاء</button>
+        <button type="button" class="btn btn-primary" id="btn-generate-statement">📄 تصدير PDF</button>
+      </div>
     </div>
   </div>
 </div>
@@ -4438,6 +4516,178 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   const TXN_CATS_OUT = ['tamara_invest','abusaif_invest','deera_invest','purchases','rent','medical','course','mohamed_advance','personal','expenses','loan','gift','other_expense'];
 
   let walletFilters = { search: '', cat: '', dir: '', notesOnly: false, custodyOnly: false };
+
+  // ============================================================
+  // WALLET STATEMENT EXPORT (كشف حساب) — filter by month/date range
+  // + any of the existing wallet filters, then print/save as PDF.
+  // ============================================================
+  const ARABIC_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+  function monthLabel(ym) {
+    const [y, m] = ym.split('-').map(Number);
+    return `${ARABIC_MONTHS[m - 1]} ${y}`;
+  }
+
+  function openStatementModal() {
+    const periodSel = document.getElementById('stmt-period');
+    const months = new Set();
+    (state.transactions || []).forEach(t => {
+      const m = String(t.date || '').match(/^(\d{4})-(\d{2})/);
+      if (m) months.add(`${m[1]}-${m[2]}`);
+    });
+    const sortedMonths = [...months].sort().reverse();
+    periodSel.innerHTML = [
+      `<option value="all">كل الفترة</option>`,
+      ...sortedMonths.map(ym => `<option value="${ym}">${monthLabel(ym)}</option>`),
+      `<option value="custom">نطاق مخصص...</option>`
+    ].join('');
+    document.getElementById('stmt-custom-range-row').style.display = 'none';
+    document.getElementById('stmt-from').value = '';
+    document.getElementById('stmt-to').value = '';
+    document.getElementById('stmt-cat').value = '';
+    document.getElementById('stmt-dir').value = '';
+    document.getElementById('stmt-notes').checked = false;
+    document.getElementById('stmt-custody').checked = false;
+    openModal('statementModal');
+  }
+
+  function generateWalletStatementPDF() {
+    const period = document.getElementById('stmt-period').value;
+    const cat = document.getElementById('stmt-cat').value;
+    const dir = document.getElementById('stmt-dir').value;
+    const notesOnly = document.getElementById('stmt-notes').checked;
+    const custodyOnly = document.getElementById('stmt-custody').checked;
+
+    let fromDate = '', toDate = '', periodLabel = 'كل الفترة';
+    if (period === 'custom') {
+      fromDate = document.getElementById('stmt-from').value || '';
+      toDate = document.getElementById('stmt-to').value || '';
+      if (fromDate && toDate) periodLabel = `${formatTxnDate(fromDate)} — ${formatTxnDate(toDate)}`;
+      else if (fromDate) periodLabel = `من ${formatTxnDate(fromDate)}`;
+      else if (toDate) periodLabel = `حتى ${formatTxnDate(toDate)}`;
+    } else if (period !== 'all') {
+      fromDate = `${period}-01`;
+      const [y, m] = period.split('-').map(Number);
+      const lastDay = new Date(y, m, 0).getDate();
+      toDate = `${period}-${String(lastDay).padStart(2, '0')}`;
+      periodLabel = monthLabel(period);
+    }
+
+    let items = [...(state.transactions || [])];
+    if (fromDate) items = items.filter(t => (t.date || '') >= fromDate);
+    if (toDate) items = items.filter(t => (t.date || '') <= toDate);
+    if (cat) items = items.filter(t => t.category === cat);
+    if (dir) items = items.filter(t => t.direction === dir);
+    if (notesOnly) items = items.filter(t => t.notes && t.notes.trim());
+    const MOHAMED_CATS = ['rent', 'expenses', 'loan', 'custody_repay', 'mohamed_advance'];
+    if (custodyOnly) items = items.filter(t => getOwningCustody(t.id) || MOHAMED_CATS.includes(t.category));
+    items.sort(compareTxnsChronological);
+
+    const filterChips = [];
+    if (cat) filterChips.push(`الفئة: ${TXN_CAT_LABELS[cat] || cat}`);
+    if (dir) filterChips.push(`الاتجاه: ${dir === 'in' ? 'إيداع فقط' : 'سحب فقط'}`);
+    if (notesOnly) filterChips.push('فيها ملاحظة فقط');
+    if (custodyOnly) filterChips.push('حركات العهد فقط');
+
+    const totalIn = items.reduce((s, t) => s + (t.deposit || 0), 0);
+    const totalOut = items.reduce((s, t) => s + (t.withdraw || 0), 0);
+    const currentBalance = (state.transactions || []).reduce((s, t) => s + (t.deposit || 0) - (t.withdraw || 0), 0);
+    const today = todayDDMMYYYY();
+
+    const rows = items.length === 0
+      ? `<tr><td colspan="7" class="muted" style="text-align:center; padding: 16px;">لا توجد حركات مطابقة</td></tr>`
+      : items.map(t => `
+        <tr>
+          <td class="small">${t.id}</td>
+          <td class="small">${formatTxnDate(t.date)}</td>
+          <td class="small">${escapeHtml(TXN_CAT_LABELS[t.category] || t.category)}</td>
+          <td>${escapeHtml((t.detail || '').split('\n')[0])}</td>
+          <td class="amount" style="color: #1d9e75;">${t.deposit ? '+' + formatNum(t.deposit) : '—'}</td>
+          <td class="amount" style="color: #c0392b;">${t.withdraw ? '-' + formatNum(t.withdraw) : '—'}</td>
+          <td class="amount">${t.balance_after !== null && t.balance_after !== undefined ? formatNum(t.balance_after) : '—'}</td>
+        </tr>
+      `).join('');
+
+    const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>كشف حساب الحصّالة — ${periodLabel}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; color: #222; padding: 30px; margin: 0; }
+  h1 { font-size: 22px; margin: 0 0 4px; color: #185fa5; }
+  .meta { font-size: 12px; color: #666; margin-bottom: 12px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+  .chip { font-size: 11px; background: #f0f3f7; border: 0.5px solid #ddd; border-radius: 20px; padding: 3px 10px; color: #444; }
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0; }
+  .summary-card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; text-align: center; }
+  .summary-card .label { font-size: 11px; color: #666; }
+  .summary-card .value { font-size: 16px; font-weight: 700; margin-top: 4px; font-family: monospace; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 12px; }
+  th, td { padding: 6px 8px; border: 0.5px solid #ddd; vertical-align: middle; }
+  th { background: #f5f5f5; font-weight: 600; }
+  .amount { text-align: end; font-family: monospace; font-weight: 600; }
+  .small { font-size: 10px; color: #555; }
+  .muted { color: #999; font-style: italic; }
+  .footer { margin-top: 30px; padding-top: 12px; border-top: 0.5px solid #ddd; font-size: 10px; color: #999; text-align: center; }
+  @media print { body { padding: 15px; } @page { margin: 1cm; } .print-btn { display: none; } }
+  @media screen {
+    .print-btn { position: fixed; top: 10px; left: 10px; background: #185fa5; color: white;
+      border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  }
+</style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>
+
+  <h1>📄 كشف حساب الحصّالة</h1>
+  <div class="meta">الفترة: ${periodLabel} · تاريخ الإصدار: ${today} · Surface Hub Project</div>
+  ${filterChips.length ? `<div class="chips">${filterChips.map(c => `<span class="chip">${escapeHtml(c)}</span>`).join('')}</div>` : ''}
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="label">عدد الحركات</div>
+      <div class="value">${items.length}</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">إجمالي الإيداعات</div>
+      <div class="value" style="color: #1d9e75;">${formatNum(totalIn)}</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">إجمالي السحوبات</div>
+      <div class="value" style="color: #c0392b;">${formatNum(totalOut)}</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">رصيد الحصّالة الحالي</div>
+      <div class="value" style="color: #185fa5;">${formatNum(currentBalance)}</div>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>#</th><th>التاريخ</th><th>الفئة</th><th>التفاصيل</th><th>إيداع</th><th>سحب</th><th>الرصيد</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  <div class="footer">
+    تم إنشاء هذا الكشف بواسطة Surface Hub · ${today}
+  </div>
+
+  <script>
+    setTimeout(() => { window.print(); }, 400);
+  <\/script>
+</body>
+</html>`;
+
+    const w = window.open('', '_blank');
+    if (!w) {
+      toast('الرجاء السماح بفتح النوافذ المنبثقة', 'error');
+      return;
+    }
+    w.document.write(html);
+    w.document.close();
+    closeModal('statementModal');
+  }
 
   function formatTxnDate(iso) {
     if (!iso) return '—';
@@ -8088,6 +8338,11 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     document.getElementById('wallet-filter-custody').addEventListener('change', e => {
       walletFilters.custodyOnly = e.target.checked;
       renderWallet();
+    });
+    document.getElementById('btn-export-statement').addEventListener('click', openStatementModal);
+    document.getElementById('btn-generate-statement').addEventListener('click', generateWalletStatementPDF);
+    document.getElementById('stmt-period').addEventListener('change', e => {
+      document.getElementById('stmt-custom-range-row').style.display = e.target.value === 'custom' ? '' : 'none';
     });
     // Click delegation for chips inside the wallet table → open relevant modal
     document.getElementById('wallet-tbody').addEventListener('click', e => {
