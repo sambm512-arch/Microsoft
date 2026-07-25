@@ -4559,6 +4559,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   }
 
   function generateWalletStatementPDF() {
+    let html;
+    try {
     const period = document.getElementById('stmt-period').value;
     const cat = document.getElementById('stmt-cat').value;
     const dir = document.getElementById('stmt-dir').value;
@@ -4655,7 +4657,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
         </tr>
       `).join('');
 
-    const html = `<!DOCTYPE html>
+    html = `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="UTF-8">
@@ -4737,6 +4739,12 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   <\/script>
 </body>
 </html>`;
+    } catch (err) {
+      console.error('Statement generation failed:', err);
+      toast('حدث خطأ أثناء إنشاء كشف الحساب', 'error');
+      closeModal('statementModal');
+      return;
+    }
 
     const w = window.open('', '_blank');
     if (!w) {
