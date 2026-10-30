@@ -223,6 +223,7 @@ table.tbl tr.clickable:focus-visible { background: var(--primary-light); outline
 .activity-icon { font-size: 15px; flex-shrink: 0; }
 .activity-detail { flex: 1; min-width: 0; font-size: 13px; }
 .activity-date { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+.mono { white-space: nowrap; }
 .activity-amount { font-weight: 500; font-family: ui-monospace, "SF Mono", Menlo, monospace; white-space: nowrap; }
 
 /* ===== Year tabs ===== */
@@ -1519,7 +1520,8 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
       <button class="btn btn-sm btn-primary" id="btn-acc-bulk-apply">تحديث الموقع</button>
       <button class="btn btn-sm" id="btn-acc-bulk-clear">إلغاء التحديد</button>
     </div>
-    <table class="tbl">
+    <div style="overflow-x: auto;">
+    <table class="tbl" style="min-width: 760px;">
       <colgroup><col style="width: 34px;"><col style="width: 90px;"><col style="width: 100px;"><col><col style="width: 90px;"><col style="width: 120px;"><col><col style="width: 170px;"></colgroup>
       <thead><tr>
         <th><input type="checkbox" id="acc-select-all" aria-label="تحديد الكل"></th>
@@ -1533,6 +1535,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
       </tr></thead>
       <tbody id="acc-tbody"></tbody>
     </table>
+    </div>
     <div class="summary-row">
       <span>الإجمالي: <strong id="acc-total">0 إكسسوار</strong></span>
       <span>إجمالي قيمة المخزون: <strong class="num" id="acc-value">0 SAR</strong></span>
@@ -1577,7 +1580,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
     </div>
     <div class="card-title" id="sales-count-label">مبيعات 2026</div>
     <div style="overflow-x: auto;">
-      <table class="tbl">
+      <table class="tbl" style="min-width: 860px;">
         <thead><tr>
           <th style="width: 35px;">#</th>
           <th class="sales-round-col" style="width: 80px; display: none;">الجولة</th>
@@ -1650,7 +1653,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
         <div class="metric"><div class="metric-label">إجمالي التكلفة</div><div class="metric-value num" id="office-cur-cost">0 SAR</div></div>
       </div>
       <div style="overflow-x: auto;">
-        <table class="tbl">
+        <table class="tbl" style="min-width: 760px;">
           <colgroup><col style="width: 35px;"><col style="width: 90px;"><col style="width: 100px;"><col style="width: 100px;"><col><col style="width: 130px;"><col style="width: 110px;"><col style="width: 70px;"><col style="width: 130px;"></colgroup>
           <thead><tr><th>#</th><th>الحالة</th><th>الجهاز</th><th>Serial</th><th>الإيميل</th><th>🔐 كلمة المرور الحالية</th><th>🔑 كلمة المرور عند التثبيت</th><th>التكلفة</th><th>إجراء</th></tr></thead>
           <tbody id="office-current-tbody"></tbody>
@@ -1668,7 +1671,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
       </div>
       <div class="warn-banner">ℹ️ <strong>الأرشيف:</strong> حسابات السنوات السابقة (2021-2024) — كلهم مثبتة على أجهزة فعلياً.</div>
       <div style="overflow-x: auto;">
-        <table class="tbl">
+        <table class="tbl" style="min-width: 760px;">
           <colgroup><col style="width: 35px;"><col style="width: 90px;"><col style="width: 100px;"><col style="width: 100px;"><col><col style="width: 130px;"><col style="width: 110px;"><col style="width: 70px;"><col style="width: 130px;"></colgroup>
           <thead><tr><th>#</th><th>الحالة</th><th>الجهاز</th><th>Serial</th><th>الإيميل</th><th>🔐 كلمة المرور الحالية</th><th>🔑 كلمة المرور عند التثبيت</th><th>التكلفة</th><th>إجراء</th></tr></thead>
           <tbody id="office-archive-tbody"></tbody>
@@ -1825,7 +1828,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
 
     <!-- Transactions Table -->
     <div style="overflow-x: auto;">
-      <table class="tbl">
+      <table class="tbl" style="min-width: 760px;">
         <colgroup>
           <col style="width: 50px;"><col style="width: 95px;"><col style="width: 130px;">
           <col><col style="width: 85px;"><col style="width: 85px;"><col style="width: 90px;">
@@ -3600,6 +3603,12 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
     if (n === null || n === undefined || isNaN(n)) return '—';
     return Number(n).toLocaleString('en-US');
   }
+  // Negative amounts in an RTL page render with the minus AFTER the digits ("987,653,521-");
+  // wrap in LTR isolates so the sign leads. Display-only: don't use for input values.
+  function formatSignedNum(n) {
+    const s = formatNum(n);
+    return (typeof n === 'number' && n < 0) ? '\u2066' + s + '\u2069' : s;
+  }
   // Rounds to the nearest halala (2 decimals) to keep accounting sums from
   // drifting away from zero due to plain float addition (e.g. 0.1 + 0.2).
   function round2(n) {
@@ -3736,7 +3745,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
 
     // KPI row
     const walletBalance = (state.transactions || []).reduce((s, t) => s + (t.deposit || 0) - (t.withdraw || 0), 0);
-    document.getElementById('dash-kpi-balance').textContent = formatNum(walletBalance);
+    document.getElementById('dash-kpi-balance').textContent = formatSignedNum(walletBalance);
     document.getElementById('dash-kpi-profit').textContent = formatNum(totalProfit);
     document.getElementById('dash-kpi-sales').textContent = formatNum(totalSales);
     document.getElementById('dash-kpi-inventory').textContent = formatNum(inv.length);
@@ -3837,7 +3846,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
         <div class="activity-item">
           <span class="activity-icon">${it.icon}</span>
           <span class="activity-detail">${escapeHtml(it.detail)}</span>
-          <span class="activity-amount ${cls}">${sign}${formatNum(it.amount)} SAR</span>
+          <span class="activity-amount ${cls}"><bdi dir="ltr">${sign}${formatNum(it.amount)} SAR</bdi></span>
           <span class="activity-date">${escapeHtml(it.dateStr)}</span>
         </div>
       `;
@@ -4400,7 +4409,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
             <td class="mono">${formatNum(s.minPrice)}</td>
             <td class="mono">${formatNum(s.targetPrice)}</td>
             <td class="mono" style="font-weight: 500;">${formatNum(s.salePrice)}</td>
-            <td class="mono ${profitClass}">${profitSign}${formatNum(s.profit)}</td>
+            <td class="mono ${profitClass}"><bdi dir="ltr">${profitSign}${formatNum(s.profit)}</bdi></td>
             <td class="mono">${pct}%</td>
             <td>${escapeHtml(s.seller || '—')}</td>
             <td class="mono">${escapeHtml(s.date || '—')}</td>
@@ -4824,7 +4833,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
     const tamaraCount = txns.filter(t => t.category === 'tamara_invest').length;
     const extTotal = txns.filter(t => t.category === 'abusaif_invest' || t.category === 'deera_invest').reduce((s, t) => s + (t.withdraw || 0), 0);
 
-    document.getElementById('wallet-balance').textContent = formatNum(balance);
+    document.getElementById('wallet-balance').textContent = formatSignedNum(balance);
     // v24.8: Effective wallet = current balance after settling Mohamed's custody.
     //   mohamedBalance > 0  → Mohamed owes the project, add to wallet (potential cash-in)
     //   mohamedBalance < 0  → Project owes Mohamed, subtract (must pay him)
@@ -4848,7 +4857,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 3px;">
           <span style="color: ${lineColor};">${lineLabel}</span>
-          <span class="mono" style="color: ${lineColor}; font-weight: 600;">${sign}${formatNum(Math.abs(mbForEffective))}</span>
+          <span class="mono" style="color: ${lineColor}; font-weight: 600;"><bdi dir="ltr">${sign}${formatNum(Math.abs(mbForEffective))}</bdi></span>
         </div>
       `;
     } else {
@@ -4866,7 +4875,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
       .reduce((s, d) => s + (d.cost || 0), 0);
     const inventoryCount = (state.inventory || []).filter(d => d.status !== 'sold').length;
     const totalCapital = balance + tamaraTotal + extTotal + inventoryCapital;
-    document.getElementById('total-capital').textContent = formatNum(totalCapital);
+    document.getElementById('total-capital').textContent = formatSignedNum(totalCapital);
     document.getElementById('total-capital-breakdown').innerHTML = [
       { icon: '💵', label: 'الحصّالة', value: balance, color: 'var(--primary)', sub: 'سيولة' },
       { icon: '🌱', label: 'تمرة المالية', value: tamaraTotal, color: 'var(--success-text)', sub: `${tamaraCount} تحويل` },
@@ -5815,7 +5824,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
             <div class="custody-txn-row-detail">${ownedTag}<strong>#${t.id}</strong> · ${escapeHtml((t.detail || '').split('\n')[0])}</div>
             <div class="custody-txn-row-meta">${formatTxnDate(t.date) || 'بدون تاريخ'} · ${TXN_CAT_LABELS[t.category] || t.category}</div>
           </div>
-          <span class="custody-txn-row-amount ${amtClass}">${sign}${formatNum(amt)}</span>
+          <span class="custody-txn-row-amount ${amtClass}"><bdi dir="ltr">${sign}${formatNum(amt)}</bdi></span>
         </label>
       `;
     }).join('');
@@ -7232,7 +7241,7 @@ button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
     const marginPct = d.cost > 0 ? (profit / d.cost * 100) : 0;
     const sign = profit >= 0 ? '+' : '';
 
-    profitEl.textContent = `${sign}${formatNum(profit)} SAR`;
+    profitEl.textContent = `\u2066${sign}${formatNum(profit)} SAR\u2069`;
     profitEl.className = 'mono ' + (profit >= 0 ? 'success-text' : 'danger-text');
     profitEl.style.fontWeight = '500';
     marginEl.textContent = `${marginPct.toFixed(1)}%`;
