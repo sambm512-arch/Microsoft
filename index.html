@@ -2,7 +2,8 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#FAFAF7">
 <title>Surface Hub</title>
 <script>
 // Set the theme before first paint to avoid a flash of the wrong palette.
@@ -11,6 +12,8 @@
     var saved = localStorage.getItem('surface_hub_theme');
     var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     document.documentElement.setAttribute('data-theme', theme);
+    var tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.setAttribute('content', theme === 'dark' ? '#17181A' : '#FAFAF7');
   } catch (e) {}
 })();
 </script>
@@ -186,14 +189,14 @@ body {
 table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.tbl th { text-align: right; padding: 8px 10px; color: var(--text-muted); font-weight: 500; border-bottom: 0.5px solid var(--border); font-size: 12px; background: var(--bg); }
 table.tbl th.sortable { cursor: pointer; user-select: none; }
-table.tbl th.sortable:hover { color: var(--primary); }
+@media (hover: hover) and (pointer: fine) { table.tbl th.sortable:hover { color: var(--primary); } }
 table.tbl th.sortable .sort-arrow { font-size: 10px; opacity: 0.5; margin-right: 4px; }
 table.tbl th.sortable.sort-asc .sort-arrow,
 table.tbl th.sortable.sort-desc .sort-arrow { opacity: 1; color: var(--primary); }
 table.tbl td { padding: 10px; border-bottom: 0.5px solid var(--border); vertical-align: middle; }
 table.tbl tr:last-child td { border-bottom: none; }
 table.tbl tr.clickable { cursor: pointer; }
-table.tbl tr.clickable:hover { background: var(--bg); }
+@media (hover: hover) and (pointer: fine) { table.tbl tr.clickable:hover { background: var(--bg); } }
 table.tbl tr.clickable:focus-visible { background: var(--primary-light); outline: none; }
 .empty-state { text-align: center; padding: 32px 16px; color: var(--text-faint); font-size: 13px; }
 
@@ -268,7 +271,7 @@ table.tbl tr.clickable:focus-visible { background: var(--primary-light); outline
   cursor: pointer;
   font-family: inherit;
 }
-.txn-note-chip:hover { background: var(--neutral-bg); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .txn-note-chip:hover { background: var(--neutral-bg); color: var(--text); } }
 .txn-serial-chip {
   display: inline-flex;
   align-items: center;
@@ -344,7 +347,7 @@ table.tbl tr.clickable:focus-visible { background: var(--primary-light); outline
   cursor: pointer;
   transition: background 0.15s;
 }
-.custody-item:hover { background: rgba(255, 255, 255, 0.95); }
+@media (hover: hover) and (pointer: fine) { .custody-item:hover { background: rgba(255, 255, 255, 0.95); } }
 .custody-item:last-child { margin-bottom: 0; }
 .custody-item-row {
   display: flex;
@@ -378,6 +381,7 @@ table.tbl tr.clickable:focus-visible { background: var(--primary-light); outline
   max-width: 600px;
   width: 90%;
   max-height: 80vh;
+  max-height: 80dvh;
   overflow-y: auto;
   padding: 20px 24px;
 }
@@ -450,7 +454,7 @@ table.tbl tr.clickable:focus-visible { background: var(--primary-light); outline
   padding: 0 4px;
   line-height: 1;
 }
-.note-modal-close:hover { color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .note-modal-close:hover { color: var(--text); } }
 
 /* Filter checkbox for custody */
 label.filter-check {
@@ -466,7 +470,7 @@ label.filter-check {
   background: var(--surface);
 }
 label.filter-check input { margin: 0; }
-label.filter-check:hover { background: var(--soft-bg); }
+@media (hover: hover) and (pointer: fine) { label.filter-check:hover { background: var(--soft-bg); } }
 
 /* ===== Custody Management (v21.8) ===== */
 .btn-manage-custody {
@@ -474,9 +478,9 @@ label.filter-check:hover { background: var(--soft-bg); }
   color: white;
   border-color: var(--warn);
 }
-.btn-manage-custody:hover { background: var(--warn-dark); border-color: var(--warn-dark); }
+@media (hover: hover) and (pointer: fine) { .btn-manage-custody:hover { background: var(--warn-dark); border-color: var(--warn-dark); } }
 
-.custody-list { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; }
+.custody-list { display: flex; flex-direction: column; gap: 10px; max-height: 60vh; max-height: 60dvh; overflow-y: auto; }
 .custody-list-empty { text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px; }
 
 .custody-card {
@@ -487,7 +491,7 @@ label.filter-check:hover { background: var(--soft-bg); }
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
-.custody-card:hover { background: var(--soft-bg); }
+@media (hover: hover) and (pointer: fine) { .custody-card:hover { background: var(--soft-bg); } }
 .custody-card.open { border-right: 4px solid var(--warn); }
 .custody-card.closed { border-right: 4px solid var(--success); }
 
@@ -583,7 +587,7 @@ label.filter-check:hover { background: var(--soft-bg); }
   cursor: pointer;
   font-size: 12px;
 }
-.custody-txn-row:hover { background: var(--soft-bg); }
+@media (hover: hover) and (pointer: fine) { .custody-txn-row:hover { background: var(--soft-bg); } }
 .custody-txn-row:last-child { border-bottom: none; }
 .custody-txn-row input[type="checkbox"] { flex-shrink: 0; }
 .custody-txn-row.owned-by-other {
@@ -668,7 +672,7 @@ label.filter-check:hover { background: var(--soft-bg); }
   color: var(--danger-text);
   padding: 4px 0;
 }
-.repay-item-remove:hover { background: var(--danger-bg); }
+@media (hover: hover) and (pointer: fine) { .repay-item-remove:hover { background: var(--danger-bg); } }
 .btn-add-repay-item {
   font-size: 11px;
   padding: 4px 10px;
@@ -680,7 +684,7 @@ label.filter-check:hover { background: var(--soft-bg); }
   font-family: inherit;
   margin-top: 6px;
 }
-.btn-add-repay-item:hover { background: var(--soft-bg); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .btn-add-repay-item:hover { background: var(--soft-bg); color: var(--text); } }
 
 /* Action row in custody detail */
 .custody-actions-row {
@@ -706,7 +710,7 @@ label.filter-check:hover { background: var(--soft-bg); }
   border: 0.5px solid rgba(24, 95, 165, 0.2);
   cursor: pointer;
 }
-.txn-custody-link-chip:hover { background: rgba(24, 95, 165, 0.15); }
+@media (hover: hover) and (pointer: fine) { .txn-custody-link-chip:hover { background: rgba(24, 95, 165, 0.15); } }
 
 /* ===== Transaction actions dropdown menu (v24.6) ===== */
 .txn-menu-wrap { position: relative; display: inline-block; }
@@ -727,7 +731,7 @@ label.filter-check:hover { background: var(--soft-bg); }
   min-width: 28px;
   height: 22px;
 }
-.txn-menu-btn:hover { background: var(--soft-bg); color: var(--text); border-color: var(--border-strong); }
+@media (hover: hover) and (pointer: fine) { .txn-menu-btn:hover { background: var(--soft-bg); color: var(--text); border-color: var(--border-strong); } }
 .txn-menu-btn[aria-expanded="true"] { background: var(--primary-light); color: var(--primary-text); border-color: var(--primary); }
 
 .txn-menu {
@@ -759,7 +763,7 @@ label.filter-check:hover { background: var(--soft-bg); }
   color: var(--text);
   text-align: start;
 }
-.txn-menu-item:hover { background: var(--soft-bg); }
+@media (hover: hover) and (pointer: fine) { .txn-menu-item:hover { background: var(--soft-bg); } }
 .txn-menu-item .txn-menu-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
 .txn-menu-divider {
   height: 0.5px;
@@ -767,7 +771,7 @@ label.filter-check:hover { background: var(--soft-bg); }
   margin: 4px 0;
 }
 .txn-menu-item.danger { color: var(--danger-text); }
-.txn-menu-item.danger:hover { background: var(--danger-bg); }
+@media (hover: hover) and (pointer: fine) { .txn-menu-item.danger:hover { background: var(--danger-bg); } }
 
 /* ===== Transaction Splitter (v23) ===== */
 .split-original {
@@ -841,7 +845,7 @@ label.filter-check:hover { background: var(--soft-bg); }
   padding: 5px 0;
   font-size: 14px;
 }
-.split-row-remove:hover { background: var(--danger-bg); }
+@media (hover: hover) and (pointer: fine) { .split-row-remove:hover { background: var(--danger-bg); } }
 .split-row-remove:disabled { opacity: 0.3; cursor: not-allowed; }
 
 @media (max-width: 700px) {
@@ -904,7 +908,7 @@ label.filter-check:hover { background: var(--soft-bg); }
   font-family: inherit;
   margin-top: 8px;
 }
-.btn-add-split-row:hover { background: var(--soft-bg); color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .btn-add-split-row:hover { background: var(--soft-bg); color: var(--text); } }
 
 /* ===== Purchase batch rows (دفعة شراء) ===== */
 .batch-row {
@@ -959,17 +963,17 @@ label.filter-check:hover { background: var(--soft-bg); }
 
 /* ===== Buttons ===== */
 .btn { padding: 6px 12px; border: 0.5px solid var(--border-strong); border-radius: 6px; background: transparent; font-family: inherit; font-size: 12px; cursor: pointer; color: var(--text); }
-.btn:hover { background: var(--soft-bg); }
+@media (hover: hover) and (pointer: fine) { .btn:hover { background: var(--soft-bg); } }
 .btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
-.btn-primary:hover { background: var(--primary-dark); }
+@media (hover: hover) and (pointer: fine) { .btn-primary:hover { background: var(--primary-dark); } }
 .btn-danger { background: var(--danger-text); color: white; border-color: var(--danger-text); }
-.btn-danger:hover { background: #5a1717; }
+@media (hover: hover) and (pointer: fine) { .btn-danger:hover { background: #5a1717; } }
 .btn-sm { padding: 3px 10px; font-size: 11px; }
 .btn-icon-only { padding: 3px 9px; font-size: 13px; line-height: 1; }
 .btn-pdf { background: var(--warn); color: white; border-color: var(--warn); }
-.btn-pdf:hover { background: var(--warn-dark); }
+@media (hover: hover) and (pointer: fine) { .btn-pdf:hover { background: var(--warn-dark); } }
 
 /* ===== Search & Filters ===== */
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
@@ -992,7 +996,7 @@ label.filter-check:hover { background: var(--soft-bg); }
 /* ===== Seller radio options ===== */
 .seller-options { display: flex; gap: 8px; flex-wrap: wrap; }
 .seller-opt { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 0.5px solid var(--border-strong); border-radius: 6px; cursor: pointer; background: var(--surface); font-size: 13px; user-select: none; transition: all 0.15s; }
-.seller-opt:hover { background: var(--soft-bg); }
+@media (hover: hover) and (pointer: fine) { .seller-opt:hover { background: var(--soft-bg); } }
 .seller-opt input[type="radio"] { margin: 0; cursor: pointer; accent-color: var(--primary); }
 .seller-opt:has(input:checked) { background: var(--primary-light); border-color: var(--primary); color: var(--primary); font-weight: 500; }
 .seller-opt:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
@@ -1041,17 +1045,17 @@ tr.loc-usa-row td:first-child { border-right: 4px solid #E07070; }
 /* ===== Office account specific ===== */
 tr.office-installed { background: linear-gradient(90deg, rgba(230,241,251,0.4) 0%, rgba(230,241,251,0.1) 100%); }
 tr.office-installed td:first-child { border-right: 3px solid var(--primary); }
-tr.office-installed:hover { background: rgba(230,241,251,0.6); }
+@media (hover: hover) and (pointer: fine) { tr.office-installed:hover { background: rgba(230,241,251,0.6); } }
 tr.office-incomplete { background: linear-gradient(90deg, rgba(250,238,218,0.4) 0%, rgba(250,238,218,0.1) 100%); }
 tr.office-incomplete td:first-child { border-right: 3px solid var(--warn); }
-tr.office-incomplete:hover { background: rgba(250,238,218,0.6); }
+@media (hover: hover) and (pointer: fine) { tr.office-incomplete:hover { background: rgba(250,238,218,0.6); } }
 tr.office-available { background: var(--surface); }
-tr.office-available:hover { background: var(--soft-bg); }
+@media (hover: hover) and (pointer: fine) { tr.office-available:hover { background: var(--soft-bg); } }
 tr.acc-maintenance-row { background: linear-gradient(90deg, rgba(253,226,226,0.45) 0%, rgba(253,226,226,0.1) 100%); }
 tr.acc-maintenance-row td:first-child { border-right: 3px solid var(--danger-text); }
-tr.acc-maintenance-row:hover { background: rgba(253,226,226,0.65); }
+@media (hover: hover) and (pointer: fine) { tr.acc-maintenance-row:hover { background: rgba(253,226,226,0.65); } }
 .secret-pwd { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; color: var(--text-faint); cursor: pointer; user-select: none; padding: 2px 6px; border-radius: 4px; background: var(--soft-bg); }
-.secret-pwd:hover { background: var(--primary-light); color: var(--primary); }
+@media (hover: hover) and (pointer: fine) { .secret-pwd:hover { background: var(--primary-light); color: var(--primary); } }
 .secret-pwd.revealed { color: var(--text); background: var(--warn-bg); letter-spacing: 0; }
 .secret-pwd:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .cost-with-date { position: relative; cursor: help; display: inline-block; }
@@ -1074,7 +1078,7 @@ tr.acc-maintenance-row:hover { background: rgba(253,226,226,0.65); }
 .note-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 8px; }
 .note-date { font-size: 11px; color: var(--text-muted); font-family: ui-monospace, "SF Mono", Menlo, monospace; }
 .note-delete { background: transparent; border: none; color: var(--text-faint); cursor: pointer; font-size: 14px; padding: 0 6px; line-height: 1; }
-.note-delete:hover { color: var(--danger-text); }
+@media (hover: hover) and (pointer: fine) { .note-delete:hover { color: var(--danger-text); } }
 .note-delete:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
 .note-text { font-size: 13px; color: var(--text); white-space: pre-wrap; word-wrap: break-word; }
 .note-add-form { display: flex; gap: 8px; align-items: stretch; }
@@ -1089,22 +1093,22 @@ tr.acc-maintenance-row:hover { background: rgba(253,226,226,0.65); }
 .photo-item:hover .photo-actions { opacity: 1; }
 .photo-actions { position: absolute; top: 4px; left: 4px; display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s; }
 .photo-action-btn { background: rgba(0,0,0,0.7); color: white; border: none; border-radius: 4px; width: 24px; height: 24px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; padding: 0; }
-.photo-action-btn:hover { background: rgba(0,0,0,0.9); }
-.photo-action-btn.delete:hover { background: var(--danger-text); }
+@media (hover: hover) and (pointer: fine) { .photo-action-btn:hover { background: rgba(0,0,0,0.9); } }
+@media (hover: hover) and (pointer: fine) { .photo-action-btn.delete:hover { background: var(--danger-text); } }
 .photo-action-btn:focus-visible { outline: 2px solid white; outline-offset: 1px; }
 .photo-caption { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); color: white; padding: 16px 8px 6px; font-size: 10px; text-align: center; }
 .photos-empty { text-align: center; padding: 16px; color: var(--text-faint); font-size: 12px; }
 .photo-upload-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--primary-light); color: var(--primary); border: 0.5px dashed var(--primary); border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background 0.15s; }
-.photo-upload-btn:hover { background: #d4e7f8; }
+@media (hover: hover) and (pointer: fine) { .photo-upload-btn:hover { background: #d4e7f8; } }
 .photo-upload-btn:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 /* ===== Photo Lightbox ===== */
 .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 3000; padding: 20px; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
 .lightbox.active { display: flex; }
-.lightbox img { max-width: 95%; max-height: 85vh; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.lightbox img { max-width: 95%; max-height: 85vh; max-height: 85dvh; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 .lightbox-caption { color: white; font-size: 13px; max-width: 600px; text-align: center; }
 .lightbox-close { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.15); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 20px; }
-.lightbox-close:hover { background: rgba(255,255,255,0.25); }
+@media (hover: hover) and (pointer: fine) { .lightbox-close:hover { background: rgba(255,255,255,0.25); } }
 
 /* ===== Footer ===== */
 .footer { text-align: center; padding: 1rem; font-size: 11px; color: var(--text-faint); }
@@ -1160,7 +1164,7 @@ tr.acc-maintenance-row:hover { background: rgba(253,226,226,0.65); }
 
 /* Row tinting for high-importance categories so they pop out when scanning */
 tr.row-tamara { background: linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.02) 100%); }
-tr.row-tamara:hover { background: rgba(16, 185, 129, 0.08); }
+@media (hover: hover) and (pointer: fine) { tr.row-tamara:hover { background: rgba(16, 185, 129, 0.08); } }
 tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 
 .txn-amount-in { color: var(--success-text); font-weight: 500; }
@@ -1218,6 +1222,51 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 .login-error.active { display: block; }
 .login-box .form-row { margin-bottom: 12px; }
 .login-status { text-align: center; font-size: 13px; color: var(--text-muted); padding: 40px 0; }
+
+/* ===== Mobile-native layer ===== */
+html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+
+/* viewport-fit=cover lets the page draw under the notch / home bar; pad content back out */
+body {
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+}
+.modal-overlay {
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-right: max(20px, env(safe-area-inset-right));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  padding-left: max(20px, env(safe-area-inset-left));
+  overscroll-behavior: contain; /* scrolling a modal must not scroll the page behind it */
+}
+.login-screen {
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+}
+.toast-container { bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px)); }
+
+/* controls: no 300ms double-tap-zoom wait, no text selection on long-press */
+button, a, [role="button"], select, summary, label, .tab, .year-tab, .sidebar-tab, .sortable, .clickable,
+input[type="checkbox"], input[type="radio"] { touch-action: manipulation; }
+button, [role="button"], .tab, .year-tab, .sidebar-tab, .close-btn {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+
+/* press feedback on every input type (the tap highlight that used to do this is gone) */
+.btn, .tab, .year-tab, .sidebar-tab, .close-btn { transition: transform 100ms ease-out; }
+.btn:not(:disabled):active, .tab:active, .year-tab:active, .sidebar-tab:active, .close-btn:active {
+  transform: scale(0.97);
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn:active, .tab:active, .year-tab:active, .sidebar-tab:active, .close-btn:active { transform: none; }
+}
+
+/* iOS Safari zooms the page when an input under 16px gets focus and never zooms back.
+   !important because many inputs carry inline font-size styles. */
+@media (pointer: coarse) {
+  input, textarea, select { font-size: 16px !important; }
+}
 </style>
 </head>
 <body>
@@ -1232,7 +1281,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
       <div id="login-error" class="login-error"></div>
       <div class="form-row">
         <label for="login-email">الإيميل</label>
-        <input type="email" id="login-email" required autocomplete="username">
+        <input type="email" id="login-email" required autocomplete="username" autocapitalize="none" autocorrect="off" enterkeyhint="next">
       </div>
       <div class="form-row">
         <label for="login-password">كلمة المرور</label>
@@ -1378,7 +1427,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 
     <!-- Toolbar: Search & Filters -->
     <div class="toolbar">
-      <input type="search" id="inv-search" class="search-input" placeholder="🔍 ابحث بالمعرف، الموديل، المواصفات، أو Serial..." aria-label="بحث في المخزون">
+      <input type="search" enterkeyhint="search" id="inv-search" class="search-input" placeholder="🔍 ابحث بالمعرف، الموديل، المواصفات، أو Serial..." aria-label="بحث في المخزون">
       <select id="inv-filter-loc" class="filter-select" aria-label="فلترة حسب الموقع">
         <option value="">كل المواقع</option>
         <option value="jeddah">🏙️ جدة</option>
@@ -1588,7 +1637,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
     <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;">
       <button class="year-tab office-era-tab active" data-era="current">📅 السنة الحالية (2026)</button>
       <button class="year-tab office-era-tab" data-era="archive">📦 الأرشيف</button>
-      <input type="search" id="office-search" class="search-input" placeholder="🔍 ابحث بالإيميل، الجهاز، أو Serial..." style="flex: 1; min-width: 200px;" aria-label="بحث في الحسابات">
+      <input type="search" enterkeyhint="search" id="office-search" class="search-input" placeholder="🔍 ابحث بالإيميل، الجهاز، أو Serial..." style="flex: 1; min-width: 200px;" aria-label="بحث في الحسابات">
       <button class="btn btn-primary btn-sm" id="btn-add-account">+ إضافة حساب جديد</button>
     </div>
 
@@ -1736,7 +1785,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 
     <!-- Toolbar -->
     <div class="wallet-toolbar">
-      <input type="search" id="wallet-search" class="search-input" placeholder="🔍 ابحث في التفاصيل أو الرقم التسلسلي..." aria-label="بحث في الحركات">
+      <input type="search" enterkeyhint="search" id="wallet-search" class="search-input" placeholder="🔍 ابحث في التفاصيل أو الرقم التسلسلي..." aria-label="بحث في الحركات">
       <select id="wallet-filter-cat" class="filter-select" aria-label="فلترة حسب الفئة">
         <option value="">كل الفئات</option>
         <optgroup label="إيداعات">
@@ -3562,6 +3611,8 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
   function updateThemeButton(theme) {
     const btn = document.getElementById('btn-toggle-theme');
     if (!btn) return;
+    const tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.setAttribute('content', theme === 'dark' ? '#17181A' : '#FAFAF7');
     btn.textContent = theme === 'dark' ? '☀️' : '🌙';
     btn.title = theme === 'dark' ? 'التبديل للوضع النهاري' : 'التبديل للوضع الليلي';
   }
@@ -5741,7 +5792,7 @@ tr.row-tamara td:first-child { border-right: 3px solid #10b981; }
 
     const toolbar = `
       <div class="custody-txn-picker-toolbar">
-        <input type="search" placeholder="🔍 بحث رقم/تفاصيل" data-picker-search="${kind}" value="${escapeAttr(filters.search)}">
+        <input type="search" enterkeyhint="search" placeholder="🔍 بحث رقم/تفاصيل" data-picker-search="${kind}" value="${escapeAttr(filters.search)}">
         <label style="font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
           <input type="checkbox" data-picker-showall="${kind}" ${filters.showAll ? 'checked' : ''}>
           عرض كل الحركات (ليس ${defaultDir === 'out' ? 'السحوبات' : 'الإيداعات'} فقط)
